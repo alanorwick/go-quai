@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -32,7 +33,6 @@ import (
 
 	"github.com/dominant-strategies/go-quai/common"
 	"github.com/dominant-strategies/go-quai/common/math"
-	"github.com/dominant-strategies/go-quai/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -108,10 +108,12 @@ func Keccak512(data ...[]byte) []byte {
 func CreateAddress(b common.Address, nonce uint64, code []byte) common.Address {
 	fmt.Println("CREATE CONTRACT DATA FOR ADDRESS", b, nonce, code)
 	fmt.Println("data len", len(code))
-	data, _ := rlp.EncodeToBytes([]interface{}{b, nonce, code})
-	fmt.Println("CreateInput", data)
-	fmt.Println("CREATE CONTRACT ADDRESS", common.BytesToAddress(Keccak256(data)[12:]))
-	return common.BytesToAddress(Keccak256(data)[12:])
+	nonceBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(nonceBytes, uint64(nonce))	
+	fmt.Println("address bytes", b.Bytes())
+	fmt.Println("nonceBytes", nonceBytes)
+	fmt.Println("CREATE CONTRACT ADDRESS", common.BytesToAddress(Keccak256(b.Bytes(), nonceBytes, code)[12:]))
+	return common.BytesToAddress(Keccak256(b.Bytes(), nonceBytes, code)[12:])
 }
 
 // CreateAddress2 creates an ethereum address given the address bytes, initial
