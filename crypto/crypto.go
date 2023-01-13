@@ -106,9 +106,11 @@ func Keccak512(data ...[]byte) []byte {
 
 // CreateAddress creates an ethereum address given the bytes and the nonce
 func CreateAddress(b common.Address, nonce uint64, code []byte) common.Address {
-	fmt.Println("CREATE CONTRACT ADDRESS", b, nonce, code)
+	fmt.Println("CREATE CONTRACT DATA FOR ADDRESS", b, nonce, code)
 	fmt.Println("data len", len(code))
 	data, _ := rlp.EncodeToBytes([]interface{}{b, nonce, code})
+	fmt.Println("CreateInput", data)
+	fmt.Println("CREATE CONTRACT ADDRESS", common.BytesToAddress(Keccak256(data)[12:]))
 	return common.BytesToAddress(Keccak256(data)[12:])
 }
 
