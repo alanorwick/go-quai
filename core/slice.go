@@ -240,8 +240,11 @@ func (sl *Slice) Append(header *types.Header, domPendingHeader *types.Header, do
 		go sl.procfutureHeaders()
 	}
 
+	for _, etx := range block.ExtTransactions() {
+		fmt.Println("ETX info", "gas", etx.Gas(), "gasPrice", etx.GasPrice(), "gasTip", etx.GasTipCap())
+	}
 	log.Info("Appended new block", "number", block.Header().Number(), "hash", block.Hash(),
-		"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
+		"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "etxs", len(block.ExtTransactions()), "gas", block.GasUsed(),
 		"root", block.Root())
 
 	return localPendingEtxs, nil
@@ -309,6 +312,7 @@ func (sl *Slice) CollectNewlyConfirmedEtxs(block *types.Block, location common.L
 		referencableEtxs = append(referencableEtxs, block.ExtTransactions()...) // Include ETXs emitted in this block
 		subRollup = subRollups[nodeCtx+1]
 	}
+	fmt.Println("Referancable ETXs", referencableEtxs)
 
 	// Filter for ETXs destined to this slice
 	newInboundEtxs := referencableEtxs.FilterToSlice(location, nodeCtx)

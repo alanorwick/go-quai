@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"container/heap"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"sync/atomic"
@@ -332,6 +333,7 @@ func (tx *Transaction) GasTipCapIntCmp(other *big.Int) int {
 // the actual negative value, _and_ ErrGasFeeCapTooLow
 func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
 	if baseFee == nil {
+		fmt.Println("baseFee is nil", tx.GasTipCap())
 		return tx.GasTipCap(), nil
 	}
 	var err error
@@ -339,6 +341,8 @@ func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
 	if gasFeeCap.Cmp(baseFee) == -1 {
 		err = ErrGasFeeCapTooLow
 	}
+	fmt.Println("EffectiveGasTip, doing math.BigMin", tx.GasTipCap(), gasFeeCap, baseFee)
+	fmt.Println("EffectiveGastTip, doing math.BigMin", math.BigMin(tx.GasTipCap(), gasFeeCap.Sub(gasFeeCap, baseFee)))
 	return math.BigMin(tx.GasTipCap(), gasFeeCap.Sub(gasFeeCap, baseFee)), err
 }
 
@@ -346,6 +350,7 @@ func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
 // error in case the effective gasTipCap is negative
 func (tx *Transaction) EffectiveGasTipValue(baseFee *big.Int) *big.Int {
 	effectiveTip, _ := tx.EffectiveGasTip(baseFee)
+	fmt.Println("EffectiveGasTipValue", effectiveTip)
 	return effectiveTip
 }
 
@@ -354,14 +359,18 @@ func (tx *Transaction) EffectiveGasTipCmp(other *Transaction, baseFee *big.Int) 
 	if baseFee == nil {
 		return tx.GasTipCapCmp(other)
 	}
+	fmt.Println("EffectiveGasTipCmp", other.EffectiveGasTipValue(baseFee), baseFee)
 	return tx.EffectiveGasTipValue(baseFee).Cmp(other.EffectiveGasTipValue(baseFee))
 }
 
 // EffectiveGasTipIntCmp compares the effective gasTipCap of a transaction to the given gasTipCap.
 func (tx *Transaction) EffectiveGasTipIntCmp(other *big.Int, baseFee *big.Int) int {
+	fmt.Println("EffectiveGasTipIntCmp", tx, other, baseFee)	
 	if baseFee == nil {
 		return tx.GasTipCapIntCmp(other)
 	}
+	fmt.Println("Other", other)
+	fmt.Println("tx.EffectiveGasTipValue(baseFee)", tx.EffectiveGasTipValue(baseFee))
 	return tx.EffectiveGasTipValue(baseFee).Cmp(other)
 }
 
@@ -571,6 +580,7 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 		acc, _ := Sender(signer, accTxs[0])
 		wrapped, err := NewTxWithMinerFee(accTxs[0], baseFee)
 		// Remove transaction if sender doesn't match from, or if wrapping fails.
+		fmt.Println("NewTransactionsByPriceAndNonce: acc", acc, "from", from, "err", err)
 		if acc != from || err != nil {
 			delete(txs, from)
 			continue

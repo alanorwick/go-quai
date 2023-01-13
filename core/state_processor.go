@@ -303,6 +303,7 @@ func (p *StateProcessor) Apply(batch ethdb.Batch, block *types.Block, newInbound
 	if etxSet == nil {
 		return nil, errors.New("failed to load etx set")
 	}
+	fmt.Println("newInbountETxs", len(newInboundEtxs))
 	etxSet.Update(newInboundEtxs, block.NumberU64())
 
 	// Process our block
@@ -378,6 +379,7 @@ func (p *StateProcessor) Apply(batch ethdb.Batch, block *types.Block, newInbound
 			}
 		}
 	}
+	fmt.Println("Write etx set", len(etxSet))
 	rawdb.WriteEtxSet(p.hc.bc.db, block.Hash(), block.NumberU64(), etxSet)
 
 	return logs, nil

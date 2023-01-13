@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync"
@@ -530,6 +531,7 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 		return nil, common.Address{}, 0, err
 	}
 	contractAddr = crypto.CreateAddress(caller.Address(), nonce, code)
+	fmt.Println("CONTRACT ADDR", contractAddr)
 	return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr)
 }
 
@@ -574,6 +576,7 @@ func (evm *EVM) CreateETX(toAddr common.Address, fromAddr common.Address, etxGas
 	// create external transaction
 	etxInner := types.ExternalTx{Value: value, To: &toAddr, Sender: fromAddr, GasTipCap: etxGasTip, GasFeeCap: etxGasPrice, Gas: etxGasLimit, Data: etxData, AccessList: etxAccessList, Nonce: nonce}
 	etx := types.NewTx(&etxInner)
+	fmt.Println("CreateETX: ", " gas: ", etxGasLimit, " gasPrice: ", etxGasPrice, " gasTip: ", etxGasTip, " value: ", value, " nonce: ", nonce, " data: ", hex.EncodeToString(etxData), " accessList: ", etxAccessList)
 
 	evm.ETXCacheLock.Lock()
 	evm.ETXCache = append(evm.ETXCache, etx)

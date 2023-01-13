@@ -718,6 +718,7 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 		// Start executing the transaction
 		env.state.Prepare(tx.Hash(), env.tcount)
 
+		fmt.Println("Commit tx in worker.go", "gas", tx.Gas(), "gasPrice", tx.GasPrice(), "nonce", tx.Nonce(), "from", from, "to", tx.To(), "value", tx.Value(), "data", tx.Data(), "tx", tx)
 		logs, err := w.commitTransaction(env, tx)
 		switch {
 		case errors.Is(err, ErrGasLimitReached):
@@ -855,11 +856,14 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, block *typ
 	if etxSet == nil {
 		return
 	}
+	fmt.Println("etxSet", len(etxSet))
 	pending, err := w.txPool.TxPoolPending(true, etxSet)
 	if err != nil {
 		return
 	}
 	localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
+	fmt.Println("localTxs", len(localTxs))
+	fmt.Println("remoteTxs", len(remoteTxs))
 	for _, account := range w.txPool.Locals() {
 		if txs := remoteTxs[account]; len(txs) > 0 {
 			delete(remoteTxs, account)
