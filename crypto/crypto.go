@@ -108,6 +108,7 @@ func Keccak512(data ...[]byte) []byte {
 func CreateAddress(b common.Address, nonce uint64, code []byte) common.Address {
 	fmt.Println("CREATE CONTRACT DATA FOR ADDRESS", b, nonce, code)
 	fmt.Println("data len", len(code))
+	fmt.Println(hex.EncodeToString(code))
 	nonceBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(nonceBytes, uint64(nonce))	
 	fmt.Println("address bytes", b.Bytes())
