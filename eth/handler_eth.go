@@ -71,6 +71,7 @@ func (h *ethHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 
 	case *eth.BlockBodiesPacket:
 		txset, uncleset, etxset, manifestset := packet.Unpack()
+		fmt.Println("UNPACKING", len(txset), len(uncleset), len(etxset), len(manifestset))
 		return h.handleBodies(peer, txset, uncleset, etxset, manifestset)
 
 	case *eth.ReceiptsPacket:

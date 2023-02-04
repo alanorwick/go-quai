@@ -459,7 +459,7 @@ func (h *handler) missingBodyLoop() {
 
 			// Check if any of the peers have the body
 			for _, peer := range allPeers[:peerThreshold] {
-				log.Debug("Fetching the missing body from", "peer", peer.ID(), "hash", header.Hash(), "number", header.NumberU64())
+				log.Info("Fetching the missing body from", "peer", peer.ID(), "hash", header.Hash(), "number", header.NumberU64())
 				h.blockFetcher.Notify(peer.ID(), header.Hash(), header.NumberU64(), time.Now(), peer.RequestOneHeader, peer.RequestBodies)
 			}
 

@@ -137,7 +137,6 @@ func handleGetBlockBodies66(backend Backend, msg Decoder, peer *Peer) error {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
 	response := answerGetBlockBodiesQuery(backend, query.GetBlockBodiesPacket, peer)
-	fmt.Println("answerGetBlockBodiesQuery", response)
 	return peer.ReplyBlockBodiesRLP(query.RequestId, response)
 }
 
@@ -153,6 +152,9 @@ func answerGetBlockBodiesQuery(backend Backend, query GetBlockBodiesPacket, peer
 			break
 		}
 		if data := backend.Core().GetBodyRLP(hash); len(data) != 0 {
+			fmt.Println("Sending body hash", hash)
+			fmt.Println("Sending body data:")
+			fmt.Println(data)
 			bodies = append(bodies, data)
 			bytes += len(data)
 		}

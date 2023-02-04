@@ -521,7 +521,7 @@ func (p *Peer) ExpectRequestHeadersByNumber(origin uint64, amount int, dom bool,
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
 func (p *Peer) RequestBodies(hashes []common.Hash) error {
-	p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
+	p.Log().Info("Fetching batch of block bodies", p.Version(), "count", len(hashes))
 	if p.Version() >= ETH66 {
 		id := rand.Uint64()
 
@@ -551,7 +551,7 @@ func (p *Peer) RequestReceipts(hashes []common.Hash) error {
 
 // RequestTxs fetches a batch of transactions from a remote node.
 func (p *Peer) RequestTxs(hashes []common.Hash) error {
-	p.Log().Debug("Fetching batch of transactions", "count", len(hashes))
+	p.Log().Info("Fetching batch of transactions", "count", len(hashes))
 	if p.Version() >= ETH66 {
 		id := rand.Uint64()
 
@@ -566,7 +566,7 @@ func (p *Peer) RequestTxs(hashes []common.Hash) error {
 
 // RequestOnePendingEtx fetches a pendingEtx for a given block hash from a remote node.
 func (p *Peer) RequestOnePendingEtxs(hash common.Hash) error {
-	p.Log().Debug("Fetching a pending etx", "hash", hash)
+	p.Log().Info("Fetching a pending etx", "hash", hash)
 	if p.Version() >= ETH66 {
 		id := rand.Uint64()
 
