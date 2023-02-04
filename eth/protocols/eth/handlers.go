@@ -137,6 +137,7 @@ func handleGetBlockBodies66(backend Backend, msg Decoder, peer *Peer) error {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
 	response := answerGetBlockBodiesQuery(backend, query.GetBlockBodiesPacket, peer)
+	fmt.Println("answerGetBlockBodiesQuery", response)
 	return peer.ReplyBlockBodiesRLP(query.RequestId, response)
 }
 

@@ -798,6 +798,9 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, uncleLi
 	trieHasher := trie.NewStackTrie(nil)
 	validate := func(index int, header *types.Header) error {
 		if types.DeriveSha(types.Transactions(txLists[index]), trieHasher) != header.TxHash() {
+			fmt.Println("tx list indexs", len(txLists[index]), txLists[index])
+			fmt.Println("tx hash error", types.DeriveSha(types.Transactions(txLists[index]), trieHasher), header.TxHash())
+			fmt.Println("header number", header.Number())
 			return errInvalidBody
 		}
 		if types.DeriveSha(types.Transactions(etxLists[index]), trieHasher) != header.EtxHash() {
@@ -805,6 +808,7 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, uncleLi
 		}
 		if nodeCtx < common.ZONE_CTX {
 			if types.DeriveSha(manifests[index], trieHasher) != header.ManifestHash(nodeCtx+1) {
+				fmt.Println("manifest hash error", types.DeriveSha(manifests[index], trieHasher), header.ManifestHash(nodeCtx+1))
 				return errInvalidBody
 			}
 		}
