@@ -50,6 +50,7 @@ type Slice struct {
 	downloaderWaitFeed     event.Feed
 	missingBodyFeed        event.Feed
 	missingPendingEtxsFeed event.Feed
+	missingPendingEtxs 	   map[common.Hash]bool
 
 	pendingEtxs *lru.Cache
 
@@ -310,6 +311,7 @@ func (sl *Slice) CollectSubRollups(b *types.Block) ([]types.Transactions, error)
 			} else {
 				log.Warn("unable to find pending etxs for hash in manifest", "hash:", hash.String())
 				// Start backfilling the missing pending ETXs needed to process this block
+				sl.missingPendingEtxs[hash] = true
 				go sl.backfillPETXs(b.Header(), b.SubManifest())
 				return nil, ErrPendingEtxNotFound
 			}
@@ -516,6 +518,7 @@ func (sl *Slice) AddPendingEtxs(pEtxs types.PendingEtxs) error {
 		rawdb.WritePendingEtxs(sl.sliceDb, pEtxs)
 		// Also write to cache for faster access
 		sl.pendingEtxs.Add(pEtxs.Header.Hash(), pEtxs.Etxs)
+		delete(sl.missingPendingEtxs, pEtxs.Header.ParentHash())
 	}
 	return nil
 }

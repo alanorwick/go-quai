@@ -25,7 +25,7 @@ const (
 	maxFutureHeaders        = 1800 // Maximum number of future headers we can store in cache
 	maxFutureTime           = 30   // Max time into the future (in seconds) we will accept a block
 	futureHeaderTtl         = 300  // Time (in seconds) a header is allowed to live in the futureHeader cache
-	futureHeaderRetryPeriod = 3    // Time (in seconds) before retrying to append future headers
+	futureHeaderRetryPeriod = 10    // Time (in seconds) before retrying to append future headers
 )
 
 type Core struct {
@@ -56,7 +56,7 @@ func NewCore(db ethdb.Database, config *Config, isLocalBlock func(block *types.H
 	return c, nil
 }
 
-func (c *Core) InsertChain(blocks types.Blocks) (int, error) {
+func (c *Core) InsertChain(blocks types.Blocks, announcePending bool) (int, error) {
 	nodeCtx := common.NodeLocation.Context()
 	domWait := false
 	for i, block := range blocks {
@@ -64,9 +64,13 @@ func (c *Core) InsertChain(blocks types.Blocks) (int, error) {
 		// Write the block body to the CandidateBody database.
 		rawdb.WriteCandidateBody(c.sl.sliceDb, block.Hash(), block.Body())
 
-		if !isCoincident && !domWait {
-			announcePending := i == len(blocks)-1
-			fmt.Println("CALLING APPEND, LENGTH OF BLOCKS", len(blocks))
+		if !isCoincident && !domWait {			
+			fmt.Println("CALLING APPEND, LENGTH OF BLOCKS", len(blocks), "ANNOUNCE PENDING", announcePending)
+			fmt.Println("LENGTH OF FUTURE HEADERS", c.futureHeaders.Len(), "ANNOUNCE PENDING", announcePending)
+			if c.futureHeaders.Len() > 0 {
+				fmt.Println("FUTURE HEADERS", c.futureHeaders.Keys(), "ANNOUNCE PENDING", announcePending, "SETTING TO FALSE")
+				announcePending = false 
+			}
 			newPendingEtxs, err := c.sl.Append(block.Header(), types.EmptyHeader(), common.Hash{}, big.NewInt(0), false, announcePending, true, nil)
 			if err != nil {
 				if err.Error() == consensus.ErrFutureBlock.Error() ||
@@ -77,6 +81,9 @@ func (c *Core) InsertChain(blocks types.Blocks) (int, error) {
 					err.Error() == ErrSubNotSyncedToDom.Error() ||
 					err.Error() == ErrDomClientNotUp.Error() {
 					c.addfutureHeader(block.Header())
+					fmt.Println("NUM HEADER STOPPED ON", block.Header().Number())
+					fmt.Println("ADDED FUTURE CACHE", err.Error())
+					fmt.Println("HITTING FUTURE, LEN IN FUTURE", c.futureHeaders.Len())
 					return i, ErrAddedFutureCache
 				}
 				if err == ErrKnownBlock {
@@ -132,7 +139,7 @@ func (c *Core) procfutureHeaders() {
 				}
 				log.Debug("could not construct block from future header", "err:", err)
 			} else {
-				c.InsertChain([]*types.Block{block})
+				c.InsertChain([]*types.Block{block}, true)
 			}
 		}
 	}

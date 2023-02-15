@@ -142,7 +142,7 @@ type Core interface {
 	AddPendingEtxs(pendingEtxs types.PendingEtxs) error
 
 	// InsertChain inserts a batch of blocks into the local chain.
-	InsertChain(types.Blocks) (int, error)
+	InsertChain(types.Blocks, bool) (int, error)
 
 	// Snapshots returns the core snapshot tree to paused it during sync.
 	Snapshots() *snapshot.Tree
@@ -751,7 +751,7 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.Header) (
 			return d.queue.ReserveHeaders(p, count), false, false
 		}
 		fetch = func(p *peerConnection, req *fetchRequest) error {
-			return p.FetchHeaders(req.From, MaxHeaderFetch)
+			return p.FetchHeaders(req.From, int(req.From-req.To))
 		}
 		capacity = func(p *peerConnection) int { return p.HeaderCapacity(d.peers.rates.TargetRoundTrip()) }
 		setIdle  = func(p *peerConnection, accepted int, deliveryTime time.Time) {
@@ -1148,6 +1148,7 @@ func (d *Downloader) processFullSyncContent(peerHeight uint64) error {
 			if d.chainInsertHook != nil {
 				d.chainInsertHook(results)
 			}
+			fmt.Println("LENGTH OF COMPLETED ITEMS IN RESULT STORE: ", d.queue.resultCache.countCompleted())
 			if err := d.importBlockResults(results); err != nil {
 				return err
 			}
@@ -1181,7 +1182,8 @@ func (d *Downloader) importBlockResults(results []*fetchResult) error {
 	for i, result := range results {
 		blocks[i] = types.NewBlockWithHeader(result.Header).WithBody(result.Transactions, result.Uncles, result.ExtTransactions, result.SubManifest)
 	}
-	if index, err := d.core.InsertChain(blocks); err != nil {
+	completedDownloading := !d.queue.resultCache.HasCompletedItems()
+	if index, err := d.core.InsertChain(blocks, completedDownloading); err != nil {
 		if err.Error() == core.ErrAddedFutureCache.Error() {
 			fmt.Println("Hitting futue cache, pausing downloader")
 			d.pauseCh<-true // Pause the downloader
