@@ -135,13 +135,14 @@ type pendingEtxs struct {
 	Etxs []types.Transactions `json:"pendingEtxs"`
 }
 
-func (ec *Client) Append(ctx context.Context, header *types.Header, domPendingHeader *types.Header, domTerminus common.Hash, td *big.Int, domOrigin bool, reorg bool, newInboundEtxs types.Transactions) ([]types.Transactions, error) {
+func (ec *Client) Append(ctx context.Context, header *types.Header, domPendingHeader *types.Header, domTerminus common.Hash, td *big.Int, domOrigin bool, announcePending bool, reorg bool, newInboundEtxs types.Transactions) ([]types.Transactions, error) {
 	fields := map[string]interface{}{
 		"header":           RPCMarshalHeader(header),
 		"domPendingHeader": RPCMarshalHeader(domPendingHeader),
 		"td":               td,
 		"domTerminus":      domTerminus,
 		"domOrigin":        domOrigin,
+		"announcePending":  announcePending,
 		"reorg":            reorg,
 		"newInboundEtxs":   newInboundEtxs,
 	}

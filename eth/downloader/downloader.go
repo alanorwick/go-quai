@@ -52,7 +52,7 @@ var (
 
 	maxQueuedHeaders  = 32 * 1024 // [eth/62] Maximum number of headers to queue for import (DOS protection)
 	maxHeadersProcess = 2048      // Number of header download results to import at once into the chain
-	maxResultsProcess = 2048      // Number of content download results to import at once into the chain
+	maxResultsProcess = 100      // Number of content download results to import at once into the chain
 
 	fsHeaderContCheck = 3 * time.Second // Time interval to check for header continuations during state download
 )
@@ -1132,6 +1132,7 @@ func (d *Downloader) processFullSyncContent(peerHeight uint64) error {
 			for pause {
 				select {
 				case p := <-d.pauseCh:
+					fmt.Println("pause", p)
 					pause = p
 				case <-d.cancelCh:
 					return nil
@@ -1174,12 +1175,15 @@ func (d *Downloader) importBlockResults(results []*fetchResult) error {
 		"firstnum", first.Number(), "firsthash", first.Hash(),
 		"lastnum", last.Number(), "lasthash", last.Hash(),
 	)
+
+	fmt.Println("SYNC PROGRESS", "starting", d.Progress().StartingBlock, "curr", d.Progress().CurrentBlock, "highest", d.Progress().HighestBlock)
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
 		blocks[i] = types.NewBlockWithHeader(result.Header).WithBody(result.Transactions, result.Uncles, result.ExtTransactions, result.SubManifest)
 	}
 	if index, err := d.core.InsertChain(blocks); err != nil {
 		if err.Error() == core.ErrAddedFutureCache.Error() {
+			fmt.Println("Hitting futue cache, pausing downloader")
 			d.pauseCh<-true // Pause the downloader
 			return nil
 		}

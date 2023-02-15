@@ -893,6 +893,7 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header,
 
 	for _, header := range request.Headers[:i] {
 		if res, stale, err := q.resultCache.GetDeliverySlot(header.Number().Uint64()); err == nil {
+			fmt.Println("Err is nil for getDeliverySlot", header.Number().Uint64())
 			reconstruct(accepted, res)
 		} else {
 			// else: betweeen here and above, some other peer filled this result,

@@ -65,7 +65,9 @@ func (c *Core) InsertChain(blocks types.Blocks) (int, error) {
 		rawdb.WriteCandidateBody(c.sl.sliceDb, block.Hash(), block.Body())
 
 		if !isCoincident && !domWait {
-			newPendingEtxs, err := c.sl.Append(block.Header(), types.EmptyHeader(), common.Hash{}, big.NewInt(0), false, true, nil)
+			announcePending := i == len(blocks)-1
+			fmt.Println("CALLING APPEND, LENGTH OF BLOCKS", len(blocks))
+			newPendingEtxs, err := c.sl.Append(block.Header(), types.EmptyHeader(), common.Hash{}, big.NewInt(0), false, announcePending, true, nil)
 			if err != nil {
 				if err.Error() == consensus.ErrFutureBlock.Error() ||
 					err.Error() == ErrBodyNotFound.Error() ||
@@ -199,8 +201,8 @@ func (c *Core) Stop() {
 // Slice methods //
 //---------------//
 
-func (c *Core) Append(header *types.Header, domPendingHeader *types.Header, domTerminus common.Hash, td *big.Int, domOrigin bool, reorg bool, newInboundEtxs types.Transactions) ([]types.Transactions, error) {
-	newPendingEtxs, err := c.sl.Append(header, domPendingHeader, domTerminus, td, domOrigin, reorg, newInboundEtxs)
+func (c *Core) Append(header *types.Header, domPendingHeader *types.Header, domTerminus common.Hash, td *big.Int, domOrigin bool, announcePending bool, reorg bool, newInboundEtxs types.Transactions) ([]types.Transactions, error) {
+	newPendingEtxs, err := c.sl.Append(header, domPendingHeader, domTerminus, td, domOrigin, announcePending, reorg, newInboundEtxs)
 	// If dom tries to append the block and sub is not in sync.
 	// proc the future header cache.
 	go c.procfutureHeaders()

@@ -110,7 +110,7 @@ func NewSlice(db ethdb.Database, config *Config, txConfig *TxPoolConfig, isLocal
 
 // Append takes a proposed header and constructs a local block and attempts to hierarchically append it to the block graph.
 // If this is called from a dominant context a domTerminus must be provided else a common.Hash{} should be used and domOrigin should be set to true.
-func (sl *Slice) Append(header *types.Header, domPendingHeader *types.Header, domTerminus common.Hash, domTd *big.Int, domOrigin bool, reorg bool, newInboundEtxs types.Transactions) ([]types.Transactions, error) {
+func (sl *Slice) Append(header *types.Header, domPendingHeader *types.Header, domTerminus common.Hash, domTd *big.Int, domOrigin bool, announcePending bool, reorg bool, newInboundEtxs types.Transactions) ([]types.Transactions, error) {
 	// The compute and write of the phCache is split starting here so we need to get the lock
 	sl.phCachemu.Lock()
 	defer sl.phCachemu.Unlock()
@@ -200,7 +200,7 @@ func (sl *Slice) Append(header *types.Header, domPendingHeader *types.Header, do
 	if nodeCtx != common.ZONE_CTX {
 		// How to get the sub pending etxs if not running the full node?.
 		if sl.subClients[location.SubIndex()] != nil {
-			subPendingEtxs, err = sl.subClients[location.SubIndex()].Append(context.Background(), block.Header(), pendingHeaderWithTermini.Header, domTerminus, td, true, reorg, newInboundEtxs)
+			subPendingEtxs, err = sl.subClients[location.SubIndex()].Append(context.Background(), block.Header(), pendingHeaderWithTermini.Header, domTerminus, td, true, announcePending, reorg, newInboundEtxs)
 			if err != nil {
 				return nil, err
 			}
@@ -251,8 +251,10 @@ func (sl *Slice) Append(header *types.Header, domPendingHeader *types.Header, do
 
 	sl.writeToPhCacheAndPickPhHead(reorg, pendingHeaderWithTermini, true, 3)
 
-	// Relay the new pendingHeader
-	sl.relayPh(pendingHeaderWithTermini, reorg, domOrigin, block.Location())
+	if announcePending {
+		// Relay the new pendingHeader
+		sl.relayPh(pendingHeaderWithTermini, reorg, domOrigin, block.Location())
+	}
 
 	log.Info("Appended new block", "number", block.Header().Number(), "hash", block.Hash(),
 		"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "etxs", len(block.ExtTransactions()), "gas", block.GasUsed(),
@@ -651,7 +653,7 @@ func (sl *Slice) init(genesis *Genesis) error {
 				if nodeCtx == common.PRIME_CTX {
 					sl.bestPhKey = block.Hash()
 					rawdb.WriteCandidateBody(sl.sliceDb, block.Hash(), block.Body())
-					_, err := sl.Append(block.Header(), types.EmptyHeader(), genesisHash, block.Difficulty(), false, false, nil)
+					_, err := sl.Append(block.Header(), types.EmptyHeader(), genesisHash, block.Difficulty(), false, true, false, nil)
 					if err != nil {
 						log.Warn("Failed to append block", "hash:", block.Hash(), "Number:", block.Number(), "Location:", block.Header().Location(), "error:", err)
 					}

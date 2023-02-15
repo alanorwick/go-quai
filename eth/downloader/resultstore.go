@@ -89,6 +89,7 @@ func (r *resultStore) AddFetch(header *types.Header) (stale, throttled bool, ite
 	// result store.
 	if item == nil {
 		item = newFetchResult(header)
+		fmt.Println("Adding fetch result", header.Number().Uint64(), "at index", index)
 		r.items[index] = item
 	}
 	return stale, throttled, item, err
