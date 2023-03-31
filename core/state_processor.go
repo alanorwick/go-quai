@@ -271,8 +271,10 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 	receipt.TxHash = tx.Hash()
 	receipt.GasUsed = result.UsedGas
 
+	fmt.Println("Is msg.To() nil? ", msg.To() == nil)
 	// If the transaction created a contract, store the creation address in the receipt.
 	if msg.To() == nil {
+		fmt.Println("Contract Address: ", crypto.CreateAddress(evm.TxContext.Origin, tx.Nonce(), tx.Data()))
 		receipt.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, tx.Nonce(), tx.Data())
 	}
 

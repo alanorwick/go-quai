@@ -106,6 +106,7 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 	if tx.Type() == ExternalTxType { // External TX does not have a signature
 		return tx.inner.(*ExternalTx).Sender, nil
 	}
+	fmt.Println("Sender here", tx)
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
 		// If the signer used to derive from in a previous
@@ -118,8 +119,10 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 
 	addr, err := signer.Sender(tx)
 	if err != nil {
+		fmt.Println("Sender error here", err)
 		return common.ZeroAddr, err
 	}
+	fmt.Println("Sender here", addr)
 	tx.from.Store(sigCache{signer: signer, from: addr})
 	return addr, nil
 }
@@ -172,6 +175,8 @@ func (s SignerV1) Sender(tx *Transaction) (common.Address, error) {
 	if tx.ChainId().Cmp(s.chainId) != 0 {
 		return common.ZeroAddr, ErrInvalidChainId
 	}
+	fmt.Println("SenderV1", tx.Hash(), R, S, V)
+	fmt.Println("SENDER TO", tx.To())
 	return recoverPlain(s.Hash(tx), R, S, V, true)
 }
 
@@ -199,6 +204,18 @@ func (s SignerV1) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s SignerV1) Hash(tx *Transaction) common.Hash {
+	fmt.Println("Signer hash", tx.Type(),
+	[]interface{}{
+		s.chainId,
+		tx.Nonce(),
+		tx.GasTipCap(),
+		tx.GasFeeCap(),
+		tx.Gas(),
+		tx.To(),
+		tx.Value(),
+		tx.Data(),
+		tx.AccessList(),
+	})
 	if tx.Type() == InternalToExternalTxType {
 		return prefixedRlpHash(
 			tx.Type(),
@@ -270,6 +287,7 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (commo
 	if len(pub) == 0 || pub[0] != 4 {
 		return common.ZeroAddr, errors.New("invalid public key")
 	}
+	fmt.Println("ADDR", crypto.Keccak256(pub[1:])[12:])
 	addr := common.BytesToAddress(crypto.Keccak256(pub[1:])[12:])
 	return addr, nil
 }

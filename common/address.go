@@ -39,6 +39,7 @@ func (a Address) InternalAddress() (*InternalAddress, error) {
 	}
 	internal, ok := a.inner.(*InternalAddress)
 	if !ok {
+		fmt.Println("Address is not internal", a.inner)
 		return nil, ErrInvalidScope
 	}
 	return internal, nil

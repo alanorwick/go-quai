@@ -656,6 +656,8 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 // be added to the allowlist, preventing any associated transaction from being dropped
 // out of the pool due to pricing constraints.
 func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err error) {
+	
+	fmt.Println("ADD TX TO POOL")
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
 	if pool.all.Get(hash) != nil {
@@ -896,6 +898,7 @@ func (pool *TxPool) addTxs(txs []*types.Transaction, local, sync bool) []error {
 		// obtaining lock
 		_, err := types.Sender(pool.signer, tx)
 		if err != nil {
+			fmt.Println("SENDER ERROR", err)
 			errs[i] = ErrInvalidSender
 			invalidTxMeter.Mark(1)
 			continue
@@ -903,6 +906,7 @@ func (pool *TxPool) addTxs(txs []*types.Transaction, local, sync bool) []error {
 		// Accumulate all unknown transactions for deeper processing
 		news = append(news, tx)
 	}
+	fmt.Println("NEWS", len(news))
 	if len(news) == 0 {
 		return errs
 	}
@@ -925,6 +929,7 @@ func (pool *TxPool) addTxs(txs []*types.Transaction, local, sync bool) []error {
 	if sync {
 		<-done
 	}
+	fmt.Println("DONE", len(news))
 	return errs
 }
 
