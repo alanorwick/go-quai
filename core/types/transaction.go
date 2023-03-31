@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"container/heap"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"sync/atomic"
@@ -287,6 +288,7 @@ func (tx *Transaction) To() *common.Address {
 	// Copy the pointed-to address.
 	ito := tx.inner.to()
 	if ito == nil {
+		fmt.Println("nil to")
 		return nil
 	}
 	cpy := *ito

@@ -216,6 +216,13 @@ func (s SignerV1) Hash(tx *Transaction) common.Hash {
 		tx.Data(),
 		tx.AccessList(),
 	})
+	txTo := tx.To()
+	var txToBytes []byte
+	if (txTo == nil) {
+		txToBytes = []byte{}
+	} else {
+		txToBytes = txTo.Bytes()
+	}
 	if tx.Type() == InternalToExternalTxType {
 		return prefixedRlpHash(
 			tx.Type(),
@@ -225,7 +232,7 @@ func (s SignerV1) Hash(tx *Transaction) common.Hash {
 				tx.GasTipCap(),
 				tx.GasFeeCap(),
 				tx.Gas(),
-				tx.To(),
+				txToBytes,
 				tx.Value(),
 				tx.Data(),
 				tx.AccessList(),
@@ -244,7 +251,7 @@ func (s SignerV1) Hash(tx *Transaction) common.Hash {
 			tx.GasTipCap(),
 			tx.GasFeeCap(),
 			tx.Gas(),
-			tx.To(),
+			txToBytes,
 			tx.Value(),
 			tx.Data(),
 			tx.AccessList(),
