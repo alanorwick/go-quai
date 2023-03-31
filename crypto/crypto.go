@@ -107,7 +107,10 @@ func Keccak512(data ...[]byte) []byte {
 // CreateAddress creates an ethereum address given the bytes and the nonce
 func CreateAddress(b common.Address, nonce uint64, code []byte) common.Address {
 	nonceBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(nonceBytes, uint64(nonce))	
+	binary.BigEndian.PutUint64(nonceBytes, uint64(nonce))
+	fmt.Println(b.Bytes())
+	fmt.Println(nonceBytes)
+	fmt.Println(code)
 	return common.BytesToAddress(Keccak256(b.Bytes(), nonceBytes, code)[12:])
 }
 

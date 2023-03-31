@@ -1320,15 +1320,18 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	// If the transaction fee cap is already specified, ensure the
 	// fee of the given transaction is _reasonable_.
 	if err := checkTxFee(tx.GasPrice(), tx.Gas(), b.RPCTxFeeCap()); err != nil {
+		fmt.Println("checkTxFee error", err)
 		return common.Hash{}, err
 	}
 	if err := b.SendTx(ctx, tx); err != nil {
+		fmt.Println("SendTx error", err)
 		return common.Hash{}, err
 	}
 	// Print a log with full tx details for manual investigations and interventions
 	signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
 	from, err := types.Sender(signer, tx)
 	if err != nil {
+		fmt.Println("Sender error", err)
 		return common.Hash{}, err
 	}
 
@@ -1369,8 +1372,12 @@ func (s *PublicTransactionPoolAPI) FillTransaction(ctx context.Context, args Tra
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, input hexutil.Bytes) (common.Hash, error) {
 	tx := new(types.Transaction)
 	if err := tx.UnmarshalBinary(input); err != nil {
+		fmt.Println("SendRawTransaction", err)
 		return common.Hash{}, err
 	}
+	fmt.Println("SendRawTransaction", tx)
+	fmt.Println("SendRawTransaction", tx.Hash())
+	fmt.Println("SendRawTransaction", tx.ChainId())
 	return SubmitTransaction(ctx, s.b, tx)
 }
 
