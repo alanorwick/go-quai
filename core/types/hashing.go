@@ -18,6 +18,7 @@ package types
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 
 	"github.com/dominant-strategies/go-quai/common"
@@ -53,6 +54,8 @@ func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
 	defer hasherPool.Put(sha)
 	sha.Reset()
 	sha.Write([]byte{prefix})
+	fmt.Println("prefix", prefix)
+	fmt.Println("x", x)
 	rlp.Encode(sha, x)
 	sha.Read(h[:])
 	return h
