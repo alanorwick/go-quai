@@ -1,13 +1,12 @@
 package vm
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
 
-	"github.com/tetratelabs/wazero"
+	"github.com/second-state/WasmEdge-go/wasmedge"
 	"github.com/tetratelabs/wazero/api"
 )
 
@@ -25,7 +24,7 @@ type WASMInterpreter struct {
 	evm *EVM
 	cfg Config
 
-	vm wazero.Runtime
+	vm *wasmedge.VM
 	Contract *Contract
 
 	returnData []byte // Last CALL's return data for subsequent reuse
@@ -61,71 +60,28 @@ func (in *WASMInterpreter) Run(contract *Contract, input []byte, readOnly bool) 
 	in.Contract = contract
 	in.Contract.Input = input
 
-	// Choose the context to use for function calls.
-	ctx := context.Background()
-	runtime := InstantiateWASMRuntime(ctx)
-	defer runtime.Close(ctx)
+	// Create VM with the configure.
+	vm := InstantiateWASMEdgeVM()
 
-	in.vm = runtime
+	in.vm = vm
 
+	vm.LoadWasmBuffer(contract.Code)
 
-	// config := wazero.NewModuleConfig().WithStartFunctions("run")
-
-
-	// compiledModule, err := runtime.CompileModule(ctx, contract.Code)
-	// if err != nil {
-	// 	fmt.Println("failed to compile module", err)
-	// 	return nil, fmt.Errorf("failed to compile module: %w", err)
-	// }
-
-	// Compile the WebAssembly module.
-	// module, err := runtime.InstantiateModule(ctx, compiledModule, config)
-	// if err != nil {
-	// 	fmt.Println("failed to instantiate module", err)
-	// 	return nil, fmt.Errorf("failed to instantiate module: %w", err)
-	// }
-
-	
-	module, err := runtime.Instantiate(ctx, contract.Code)
+	err = vm.Validate()
 	if err != nil {
-		fmt.Println("failed to instantiate module", err)
-		return nil, fmt.Errorf("failed to instantiate module: %w", err)
+		log.Panicln("🔴 Error while validating WASM module: ", err)
 	}
 
-	WriteWASMInterpreter(module, in)
-
-	// Get references to WebAssembly function: "run"
-	runModuleFunction := module.ExportedFunction("run")
-
-	// Now, we can call "add", which reads the string we wrote to memory!
-	// result []uint64
-	result, errCallFunction := runModuleFunction.Call(ctx)
-	if errCallFunction != nil {
-		log.Panicln("🔴 Error while calling the function ", errCallFunction)
+	// Instantiate the WASM module.
+	err = vm.Instantiate()
+	if err != nil {
+	fmt.Println("Instantiation FAILED:", err.Error())
+	return
 	}
 
-	fmt.Println("result:", result)
-	// exports := module.ExportedFunctionDefinitions()
-	
-	// if _, ok := exports["main"]; !ok {
-	// 	return nil, fmt.Errorf("no main function exported")
-	// }
-	
-	// if _, ok := exports["memory"]; !ok {
-	// 	return nil, fmt.Errorf("no memory exported")
-	// }
 
-	// if len(input) > 2 {
-	// 	return nil, fmt.Errorf("input too long")
-	// }
+	vm.Release()
 
-	// TODO validate input from spec
-
-	// main := module.ExportedFunction("main")
-
-	// if _, ok := main.Call(ctx); ok != nil {
-	// 	return nil, fmt.Errorf("failed to call main: %w", err)
-	// }
 
 	return in.returnData, nil
 }

@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tetratelabs/wazero"
+	"github.com/second-state/WasmEdge-go/wasmedge"
 	"github.com/tetratelabs/wazero/api"
-	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
 
@@ -86,44 +85,45 @@ var eeiFunctionList = []string{
 	"getBlockTimestamp",
 }
 
-func InstantiateWASMRuntime(ctx context.Context) wazero.Runtime {
+func InstantiateWASMEdgeVM() *wasmedge.VM {	
+	// Choose the context to use for function calls.
+	// Set the logging level.
+	wasmedge.SetLogErrorLevel()
 
-	// Create a new WebAssembly Runtime.
-	r := wazero.NewRuntime(ctx)
+	// Create the configure context and add the WASI support.
+	// This step is not necessary unless you need WASI support.
+	conf := wasmedge.NewConfigure(wasmedge.WASI)
+	// Create VM with the configure.
+	vm := wasmedge.NewVMWithConfig(conf)
 
-	_, errEnv := r.NewHostModuleBuilder("env").
-	NewFunctionBuilder().WithFunc(logUint32).Export("hostLogUint32").
-	NewFunctionBuilder().WithFunc(logString).Export("hostLogString").
-	NewFunctionBuilder().WithFunc(useGas).Export("useGas").
-	Instantiate(ctx)
-	if errEnv != nil {
-		fmt.Println("🔴 Error with env:", errEnv)
-	}
+	// Create the module instance with the module name "extern".
+	impmod := wasmedge.NewModule("extern")
 
-	_, errInstantiate := wasi_snapshot_preview1.Instantiate(ctx, r)
-	if errInstantiate != nil {
-		fmt.Println("🔴 Error with Instantiate:", errInstantiate)
-	}
+	// Create and add a function instance into the module instance with export name "func-add".
+	functype := wasmedge.NewFunctionType([]wasmedge.ValType{wasmedge.ValType_I32}, []wasmedge.ValType{})
+	hostfunc := wasmedge.NewFunction(functype, host_trap, nil, 0)
+	functype.Release()
+	impmod.AddFunction("trap", hostfunc)
 
-	
-	fmt.Println("🤖: Instantiated WASM Runtime")
+  	// Register the module instance into VM.
+	vm.RegisterModule(impmod)
 
-
-	return r
+	return vm
 }
 
 
-func logUint32(value uint32) {
-	fmt.Println("🤖:", value)
-}
-
-func logString(ctx context.Context, module api.Module, offset, byteCount uint32) {
-	buf, ok := module.Memory().Read(offset, byteCount)
-	if !ok {
-		log.Panicf("🟥 Memory.Read(%d, %d) out of range", offset, byteCount)
-	}
-	fmt.Println("👽:", string(buf))
-}
+// Host function body definition.
+func host_trap(data interface{}, callframe *wasmedge.CallingFrame, params []interface{}) ([]interface{}, wasmedge.Result) {
+	// add: i32, i32 -> i32
+	res := params[0].(int32) + params[1].(int32)
+  
+	// Set the returns
+	returns := make([]interface{}, 1)
+	returns[0] = res
+  
+	// Return
+	return returns, wasmedge.Result_Success
+  }
 
 
 func (in WASMInterpreter) gasAccounting(cost uint64) {
@@ -136,14 +136,23 @@ func (in WASMInterpreter) gasAccounting(cost uint64) {
 	in.Contract.Gas -= cost
 }
 
+func readSize(ctx context.Context, module api.Module, offset uint32, size uint32) []byte {
+	buf, ok := module.Memory().Read(offset, size)
+	if !ok {
+		log.Panicf("🟥 Memory.Read(%d, %d) out of range", 4, size)
+	}
+
+	return buf
+}
+
 
 func useGas(ctx context.Context, module api.Module, amount int64) {
-    in := ReadWASMInterpreter(module)
+    in := ReadWASMInterpreter(ctx, module)
 	in.gasAccounting(uint64(amount))
 	WriteWASMInterpreter(module, in)
 }
 
-func ReadWASMInterpreter(module api.Module) *WASMInterpreter {
+func ReadWASMInterpreter(ctx context.Context, module api.Module) *WASMInterpreter {
 	bufSize, ok := module.Memory().Read(0, 4)
 	if !ok {
 		log.Panicf("🟥 Memory.Read(%d, %d) out of range", 0, 4)
@@ -160,3 +169,8 @@ func ReadWASMInterpreter(module api.Module) *WASMInterpreter {
 	json.Unmarshal(buf, in)
 	return in
 }
+
+func WriteResult(module api.Module, result []byte, resultOffset uint32) {
+	module.Memory().Write(resultOffset, result)
+}
+
