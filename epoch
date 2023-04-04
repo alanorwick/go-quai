@@ -1,0 +1,4 @@
+time="2023-09-15T12:51:24-05:00" level=info msg="progpow/algorithm.go:181                 Generating ethash verification cache     percentage=81 elapsed=3.002s"
+time="2023-09-15T12:51:24-05:00" level=info msg="progpow/algorithm.go:157                 Generated ethash verification cache      elapsed=3.364s"
+time="2023-09-15T12:51:30-05:00" level=info msg="progpow/algorithm.go:181                 Generating ethash verification cache     percentage=91 elapsed=3.011s"
+time="2023-09-15T12:51:31-05:00" level=info msg="progpow/algorithm.go:157                 Generated ethash verification cache      elapsed=3.500s"
