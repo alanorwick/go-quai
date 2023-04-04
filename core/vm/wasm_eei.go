@@ -2,12 +2,11 @@ package vm
 
 import (
 	"context"
-	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
-	"github.com/second-state/WasmEdge-go/wasmedge"
+	"github.com/bytecodealliance/wasmtime-go/v7"
 	"github.com/tetratelabs/wazero/api"
 )
 
@@ -20,6 +19,19 @@ const (
 	// ErrEEICallRevert is the return value in case a contract calls `revert`
 	ErrEEICallRevert = 2
 )
+
+const (
+	defaultTimeout   = 5 * time.Second
+	FuncAbort        = "abort"
+	FuncFdWrite      = "fd_write"
+	FuncHostStateGet = "hostStateGet"
+	FuncHostStateSet = "hostStateSet"
+	ModuleEnv        = "env"
+	ModuleWasi1      = "wasi_unstable"
+	ModuleWasi2      = "wasi_snapshot_preview1"
+	ModuleWasmLib    = "WasmLib"
+)
+
 
 // List of gas costs
 const (
@@ -85,45 +97,63 @@ var eeiFunctionList = []string{
 	"getBlockTimestamp",
 }
 
-func InstantiateWASMEdgeVM() *wasmedge.VM {	
-	// Choose the context to use for function calls.
-	// Set the logging level.
-	wasmedge.SetLogErrorLevel()
 
-	// Create the configure context and add the WASI support.
-	// This step is not necessary unless you need WASI support.
-	conf := wasmedge.NewConfigure(wasmedge.WASI)
-	// Create VM with the configure.
-	vm := wasmedge.NewVMWithConfig(conf)
+type WasmVM struct {
+	evm *EVM
 
-	// Create the module instance with the module name "extern".
-	impmod := wasmedge.NewModule("extern")
+	engine     *wasmtime.Engine
+	instance   *wasmtime.Instance
+	linker     *wasmtime.Linker
+	memory     *wasmtime.Memory
+	module     *wasmtime.Module
+	store      *wasmtime.Store
 
-	// Create and add a function instance into the module instance with export name "func-add".
-	functype := wasmedge.NewFunctionType([]wasmedge.ValType{wasmedge.ValType_I32}, []wasmedge.ValType{})
-	hostfunc := wasmedge.NewFunction(functype, host_trap, nil, 0)
-	functype.Release()
-	impmod.AddFunction("trap", hostfunc)
+	Contract *Contract
 
-  	// Register the module instance into VM.
-	vm.RegisterModule(impmod)
+	cachedResult   []byte
+	panicErr       error
+	timeoutStarted bool
+}
+
+
+func InstantiateWASMVM() *WasmVM {	
+	config := wasmtime.NewConfig()
+	// no need to be interruptable by WasmVMBase
+	// config.SetInterruptable(true)
+	config.SetConsumeFuel(true)
+	vm := &WasmVM{engine: wasmtime.NewEngineWithConfig(config)}
+	// prevent WasmVMBase from starting timeout interrupting,
+	// instead we simply let WasmTime run out of fuel
+	vm.timeoutStarted = true // DisableWasmTimeout
+
+	vm.LinkHost()
 
 	return vm
 }
 
+func (vm *WasmVM) LinkHost() (err error) {
+	vm.store = wasmtime.NewStore(vm.engine)
+	vm.linker = wasmtime.NewLinker(vm.engine)
 
-// Host function body definition.
-func host_trap(data interface{}, callframe *wasmedge.CallingFrame, params []interface{}) ([]interface{}, wasmedge.Result) {
-	// add: i32, i32 -> i32
-	res := params[0].(int32) + params[1].(int32)
-  
-	// Set the returns
-	returns := make([]interface{}, 1)
-	returns[0] = res
-  
-	// Return
-	return returns, wasmedge.Result_Success
-  }
+	// new Wasm VM interface
+	err = vm.linker.DefineFunc(vm.store, ModuleWasmLib, FuncHostStateGet, vm.HostStateGet)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (vm *WasmVM) LoadWasm(wasmData []byte) (err error) {
+	vm.module, err = wasmtime.NewModule(vm.engine, wasmData)
+	return err
+}
+
+
+func (vm *WasmVM) UnsafeMemory() []byte {
+	return vm.memory.UnsafeData(vm.store)
+}
+
 
 
 func (in WASMInterpreter) gasAccounting(cost uint64) {
@@ -147,30 +177,5 @@ func readSize(ctx context.Context, module api.Module, offset uint32, size uint32
 
 
 func useGas(ctx context.Context, module api.Module, amount int64) {
-    in := ReadWASMInterpreter(ctx, module)
 	in.gasAccounting(uint64(amount))
-	WriteWASMInterpreter(module, in)
 }
-
-func ReadWASMInterpreter(ctx context.Context, module api.Module) *WASMInterpreter {
-	bufSize, ok := module.Memory().Read(0, 4)
-	if !ok {
-		log.Panicf("🟥 Memory.Read(%d, %d) out of range", 0, 4)
-	}
-
-	size := binary.LittleEndian.Uint32(bufSize)
-	
-	buf, ok := module.Memory().Read(4, uint32(size))
-	if !ok {
-		log.Panicf("🟥 Memory.Read(%d, %d) out of range", 4, size)
-	}
-
-	in := &WASMInterpreter{}
-	json.Unmarshal(buf, in)
-	return in
-}
-
-func WriteResult(module api.Module, result []byte, resultOffset uint32) {
-	module.Memory().Write(resultOffset, result)
-}
-
