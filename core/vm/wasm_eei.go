@@ -85,7 +85,7 @@ var eeiFunctionList = []string{
 	"getBlockTimestamp",
 }
 
-func InstantiateWASMEdgeVM() *wasmedge.VM {	
+func InstantiateWASMEdgeVM(in *WASMInterpreter) *wasmedge.VM {	
 	// Choose the context to use for function calls.
 	// Set the logging level.
 	wasmedge.SetLogErrorLevel()
@@ -100,10 +100,10 @@ func InstantiateWASMEdgeVM() *wasmedge.VM {
 	impmod := wasmedge.NewModule("extern")
 
 	// Create and add a function instance into the module instance with export name "func-add".
-	functype := wasmedge.NewFunctionType([]wasmedge.ValType{wasmedge.ValType_I32}, []wasmedge.ValType{})
-	hostfunc := wasmedge.NewFunction(functype, host_trap, nil, 0)
+	functype := wasmedge.NewFunctionType([]wasmedge.ValType{}, []wasmedge.ValType{})
+	hostfunc := wasmedge.NewFunction(functype, in.useGas, nil, 0)
 	functype.Release()
-	impmod.AddFunction("trap", hostfunc)
+	impmod.AddFunction("useGas", hostfunc)
 
   	// Register the module instance into VM.
 	vm.RegisterModule(impmod)
@@ -136,6 +136,13 @@ func (in WASMInterpreter) gasAccounting(cost uint64) {
 	in.Contract.Gas -= cost
 }
 
+
+func (in *WASMInterpreter) useGas(data interface{}, callframe *wasmedge.CallingFrame, params []interface{}) ([]interface{}, wasmedge.Result)  {
+	amount := params[0].(uint64)
+	in.gasAccounting(uint64(amount))
+	return nil, wasmedge.Result_Success
+}
+
 func readSize(ctx context.Context, module api.Module, offset uint32, size uint32) []byte {
 	buf, ok := module.Memory().Read(offset, size)
 	if !ok {
@@ -143,13 +150,6 @@ func readSize(ctx context.Context, module api.Module, offset uint32, size uint32
 	}
 
 	return buf
-}
-
-
-func useGas(ctx context.Context, module api.Module, amount int64) {
-    in := ReadWASMInterpreter(ctx, module)
-	in.gasAccounting(uint64(amount))
-	WriteWASMInterpreter(module, in)
 }
 
 func ReadWASMInterpreter(ctx context.Context, module api.Module) *WASMInterpreter {

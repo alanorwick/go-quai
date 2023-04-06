@@ -61,7 +61,7 @@ func (in *WASMInterpreter) Run(contract *Contract, input []byte, readOnly bool) 
 	in.Contract.Input = input
 
 	// Create VM with the configure.
-	vm := InstantiateWASMEdgeVM()
+	vm := InstantiateWASMEdgeVM(in)
 
 	in.vm = vm
 
