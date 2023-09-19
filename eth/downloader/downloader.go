@@ -20,6 +20,11 @@ package downloader
 import (
 	"errors"
 	"fmt"
+	"math/big"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	quai "github.com/dominant-strategies/go-quai"
 	"github.com/dominant-strategies/go-quai/common"
 	"github.com/dominant-strategies/go-quai/consensus"
@@ -30,10 +35,6 @@ import (
 	"github.com/dominant-strategies/go-quai/event"
 	"github.com/dominant-strategies/go-quai/log"
 	"github.com/dominant-strategies/go-quai/metrics"
-	"math/big"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 var (
@@ -264,7 +265,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, entropy *big.Int, 
 			// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 			log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
 		} else {
-			d.dropPeer(id)
+			// d.dropPeer(id)
 		}
 		return err
 	}
@@ -725,9 +726,9 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 				break
 			}
 			// Header retrieval timed out, consider the peer bad and drop
-			p.log.Debug("Header request timed out", "elapsed", ttl)
+			p.log.Info("Header request timed out", "elapsed", ttl)
 			headerTimeoutMeter.Mark(1)
-			d.dropPeer(p.id)
+			// d.dropPeer(p.id)
 
 			// Finish the sync gracefully instead of dumping the gathered data though
 			for _, ch := range []chan bool{d.bodyWakeCh} {
