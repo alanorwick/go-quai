@@ -82,6 +82,7 @@ var QEIFunctionList = []string{
 type WasmVM struct {
 	engine   *wasmer.Engine
 	store    *wasmer.Store
+	config   *wasmer.Config
 	imports  *wasmer.ImportObject
 	module   *wasmer.Module
 	instance *wasmer.Instance
@@ -89,14 +90,22 @@ type WasmVM struct {
 }
 
 func InstantiateWasmVM(in *WASMInterpreter, code []byte) WasmVM {
-
-	// Create a new WebAssembly Runtime.
-	engine := wasmer.NewEngine()
+	config := wasmer.NewConfig()
+	// there hasn't been a release to include the metering middleware
+	// https://github.com/wasmerio/wasmer-go/releases
+	opmap := map[uint32]uint32{
+		End:      1,
+		LocalGet: 1,
+		I32Add:   4,
+	}
+	config.PushMeteringMiddleware(7865444, opmap)
+	engine := wasmer.NewEngineWithConfig(config)
 	store := wasmer.NewStore(engine)
 
 	vm := WasmVM{
 		engine: engine,
 		store:  store,
+		config: config,
 	}
 
 	fmt.Println("🤖: Instantiated WASM Runtime")
