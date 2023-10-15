@@ -65,6 +65,7 @@ type Slice struct {
 	pendingEtxsFeed       event.Feed
 	pendingEtxsRollupFeed event.Feed
 	missingBlockFeed      event.Feed
+	collectManifestFeed   event.Feed
 
 	pEtxRetryCache *lru.Cache
 	asyncPhCh      chan *types.Header
@@ -147,7 +148,7 @@ func (sl *Slice) Append(header *types.Header, domPendingHeader *types.Header, do
 
 	// Only print in Info level if block is c_startingPrintLimit behind or less
 	if sl.CurrentInfo(header) {
-		log.Info("Starting slice append", "hash", header.Hash(), "number", header.NumberArray(), "location", header.Location(), "parent hash", header.ParentHash())
+		log.Debug("Starting slice append", "hash", header.Hash(), "number", header.NumberArray(), "location", header.Location(), "parent hash", header.ParentHash())
 	} else {
 		log.Debug("Starting slice append", "hash", header.Hash(), "number", header.NumberArray(), "location", header.Location(), "parent hash", header.ParentHash())
 	}
@@ -1200,6 +1201,10 @@ func (sl *Slice) GetPendingBlockBody(header *types.Header) *types.Body {
 
 func (sl *Slice) SubscribeMissingBlockEvent(ch chan<- types.BlockRequest) event.Subscription {
 	return sl.scope.Track(sl.missingBlockFeed.Subscribe(ch))
+}
+
+func (sl *Slice) SubscribeCollectManifestEvent(ch chan<- types.BlockManifest) event.Subscription {
+	return sl.scope.Track(sl.collectManifestFeed.Subscribe(ch))
 }
 
 // MakeDomClient creates the quaiclient for the given domurl
