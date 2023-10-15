@@ -295,6 +295,7 @@ func (c *Core) serviceBlocks(hashNumberList []types.HashAndNumber) {
 					c.normalListBackoff = 1
 				}
 			} else {
+				fmt.Println("missing block feed 1", block.ParentHash())
 				c.sl.missingBlockFeed.Send(types.BlockRequest{Hash: block.ParentHash(), Entropy: block.ParentEntropy()})
 			}
 		} else {
@@ -314,6 +315,7 @@ func (c *Core) RequestDomToAppendOrFetch(hash common.Hash, entropy *big.Int, ord
 			log.Debug("Block sub asked doesnt exist in append queue, so request the peers for it", "Hash", hash, "Order", order)
 			block := c.GetBlockOrCandidateByHash(hash)
 			if block == nil {
+				fmt.Println("missing block feed 2", hash)
 				c.sl.missingBlockFeed.Send(types.BlockRequest{Hash: hash, Entropy: entropy}) // Using the missing parent feed to ask for the block
 			} else {
 				c.addToQueueIfNotAppended(block)
@@ -330,6 +332,7 @@ func (c *Core) RequestDomToAppendOrFetch(hash common.Hash, entropy *big.Int, ord
 			log.Debug("Block sub asked doesnt exist in append queue, so request the peers for it", "Hash", hash, "Order", order)
 			block := c.GetBlockOrCandidateByHash(hash)
 			if block == nil {
+				fmt.Println("missing block feed 3", hash)
 				c.sl.missingBlockFeed.Send(types.BlockRequest{Hash: hash, Entropy: entropy}) // Using the missing parent feed to ask for the block
 			} else {
 				c.addToQueueIfNotAppended(block)
@@ -597,6 +600,7 @@ func (c *Core) Append(header *types.Header, manifest types.BlockManifest, domPen
 			// Fetch the blocks for each hash in the manifest
 			block := c.GetBlockOrCandidateByHash(header.Hash())
 			if block == nil {
+				fmt.Println("missing block feed 4", header.Hash())
 				c.sl.missingBlockFeed.Send(types.BlockRequest{Hash: header.Hash(), Entropy: header.ParentEntropy()})
 			} else {
 				c.addToQueueIfNotAppended(block)
@@ -604,6 +608,7 @@ func (c *Core) Append(header *types.Header, manifest types.BlockManifest, domPen
 			for _, m := range manifest {
 				block := c.GetBlockOrCandidateByHash(m)
 				if block == nil {
+					fmt.Println("missing block feed 5", m)
 					c.sl.missingBlockFeed.Send(types.BlockRequest{Hash: m, Entropy: header.ParentEntropy()})
 				} else {
 					c.addToQueueIfNotAppended(block)
@@ -611,6 +616,7 @@ func (c *Core) Append(header *types.Header, manifest types.BlockManifest, domPen
 			}
 			block = c.GetBlockOrCandidateByHash(header.ParentHash())
 			if block == nil {
+				fmt.Println("missing block feed 6", header.ParentHash())
 				c.sl.missingBlockFeed.Send(types.BlockRequest{Hash: header.ParentHash(), Entropy: header.ParentEntropy()})
 			} else {
 				c.addToQueueIfNotAppended(block)
@@ -625,6 +631,7 @@ func (c *Core) DownloadBlocksInManifest(blockHash common.Hash, manifest types.Bl
 	for _, m := range manifest {
 		block := c.GetBlockOrCandidateByHash(m)
 		if block == nil {
+			fmt.Println("missing block feed 7", m)
 			c.sl.missingBlockFeed.Send(types.BlockRequest{Hash: m, Entropy: entropy})
 		} else {
 			c.addToQueueIfNotAppended(block)
