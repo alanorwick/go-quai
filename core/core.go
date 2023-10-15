@@ -379,7 +379,7 @@ func (c *Core) addToAppendQueue(block *types.Block) error {
 	}
 
 	// prefetch data if dom block going into appendQueue, will need later on anyway
-	if nodeCtx < 2 && block.NumberU64()-c.CurrentHeader().NumberU64() < 10 {
+	if nodeCtx < 2 {
 		c.sl.subClients[block.Location().SubIndex()].DownloadBlocksInManifest(context.Background(), block.Hash(), block.SubManifest(), block.ParentEntropy())
 	}
 
