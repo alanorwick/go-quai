@@ -19,6 +19,7 @@ package fetcher
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"time"
@@ -772,6 +773,7 @@ func (f *BlockFetcher) ImportBlocks(peer string, block *types.Block, relay bool)
 			return
 		}
 		// TODO: verify the Headers work to be in a certain threshold window
+		fmt.Println("Writing block", block.Header().Location().Name(), block.Header().NumberArray())
 		f.writeBlock(block)
 		// If import succeeded, broadcast the block
 		blockAnnounceOutTimer.UpdateSince(block.ReceivedAt)

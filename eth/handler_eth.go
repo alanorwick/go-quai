@@ -191,7 +191,7 @@ func (h *ethHandler) handleBlockBroadcast(peer *eth.Peer, block *types.Block, en
 	h.blockFetcher.ImportBlocks(peer.ID(), block, relay)
 
 	if block != nil && !h.broadcastCache.Contains(block.Hash()) {
-		log.Info("Received Block Broadcast", "Hash", block.Hash(), "Number", block.Header().NumberArray())
+		log.Debug("Received Block Broadcast", "Hash", block.Hash(), "Number", block.Header().NumberArray())
 		h.broadcastCache.Add(block.Hash(), true)
 	}
 

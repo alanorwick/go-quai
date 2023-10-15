@@ -504,7 +504,7 @@ func (h *handler) missingBlockLoop() {
 			rand.Shuffle(len(allPeers), func(i, j int) { allPeers[i], allPeers[j] = allPeers[j], allPeers[i] })
 
 			for _, peer := range allPeers {
-				log.Info("Fetching the missing parent from", "peer", peer.ID(), "hash", blockRequest.Hash)
+				log.Debug("Fetching the missing parent from", "peer", peer.ID(), "hash", blockRequest.Hash)
 				_, _, peerEntropy, _ := peer.Head()
 				if peerEntropy != nil {
 					if peerEntropy.Cmp(blockRequest.Entropy) > 0 {

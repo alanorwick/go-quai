@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"sort"
@@ -30,6 +31,7 @@ import (
 
 const (
 	c_maxAppendQueue                           = 1000000 // Maximum number of future headers we can store in cache
+	c_maxPrefetchQueue                         = 10      // Max number of dom blocks to prefetch subs for
 	c_maxFutureTime                            = 30      // Max time into the future (in seconds) we will accept a block
 	c_appendQueueRetryPeriod                   = 1       // Time (in seconds) before retrying to append from AppendQueue
 	c_appendQueueThreshold                     = 200     // Number of blocks to load from the disk to ram on every proc of append queue
@@ -61,6 +63,7 @@ type Core struct {
 
 	appendQueue     *lru.Cache
 	processingCache *lru.Cache
+	prefetchQueue   *lru.Cache
 
 	badSyncTargets *lru.Cache
 	prevSyncTarget common.Hash
@@ -101,6 +104,8 @@ func NewCore(db ethdb.Database, config *Config, isLocalBlock func(block *types.H
 
 	badSyncTargetsCache, _ := lru.New(c_badSyncTargetsSize)
 	c.badSyncTargets = badSyncTargetsCache
+	prefetchQueue, _ := lru.New(c_maxPrefetchQueue)
+	c.prefetchQueue = prefetchQueue
 
 	go c.updateAppendQueue()
 	go c.startStatsTimer()
@@ -147,6 +152,9 @@ func (c *Core) InsertChain(blocks types.Blocks) (int, error) {
 					}
 				}
 				c.removeFromAppendQueue(block)
+				if order < common.ZONE_CTX {
+					c.removeFromPrefetchQueue(block)
+				}
 			} else if err.Error() == consensus.ErrFutureBlock.Error() ||
 				err.Error() == ErrBodyNotFound.Error() ||
 				err.Error() == ErrPendingEtxNotFound.Error() ||
@@ -155,7 +163,7 @@ func (c *Core) InsertChain(blocks types.Blocks) (int, error) {
 				err.Error() == ErrSubNotSyncedToDom.Error() ||
 				err.Error() == ErrDomClientNotUp.Error() {
 				if c.sl.CurrentInfo(block.Header()) {
-					log.Info("Cannot append yet.", "loc", common.NodeLocation.Name(), "number", block.Header().NumberArray(), "hash", block.Hash(), "err", err)
+					log.Info("Cannot append yet.", "loc", common.NodeLocation.Name(), "shard", block.Header().Location().Name(), "number", block.Header().NumberArray(), "hash", block.Hash(), "err", err)
 				} else {
 					log.Debug("Cannot append yet.", "loc", common.NodeLocation.Name(), "number", block.Header().NumberArray(), "hash", block.Hash(), "err", err)
 				}
@@ -206,6 +214,8 @@ func (c *Core) procAppendQueue() {
 		}
 	}
 
+	log.Info("size of lists", "hashNumberPriorityList", len(hashNumberPriorityList), "hashNumberList", len(hashNumberList))
+
 	c.serviceBlocks(hashNumberPriorityList)
 	if len(hashNumberPriorityList) > 0 {
 		log.Info("Size of hashNumberPriorityList", "len", len(hashNumberPriorityList), "first entry", hashNumberPriorityList[0].Number, "last entry", hashNumberPriorityList[len(hashNumberPriorityList)-1].Number)
@@ -240,6 +250,12 @@ func (c *Core) serviceBlocks(hashNumberList []types.HashAndNumber) {
 	// Attempt to service the sorted list
 	for i, hashAndNumber := range hashNumberList {
 		block := c.GetBlockOrCandidateByHash(hashAndNumber.Hash)
+
+		// Prefetch all sub blocks in manifests for the next 10 dom blocks
+		if common.NodeLocation.Context() < common.ZONE_CTX {
+			c.addToPrefetchQueue(block)
+		}
+
 		if block != nil {
 			var numberAndRetryCounter blockNumberAndRetryCounter
 			if value, exist := c.appendQueue.Peek(block.Hash()); exist {
@@ -312,7 +328,7 @@ func (c *Core) RequestDomToAppendOrFetch(hash common.Hash, entropy *big.Int, ord
 		_, exists := c.appendQueue.Get(hash)
 		if !exists {
 			log.Debug("Block sub asked doesnt exist in append queue, so request the peers for it", "Hash", hash, "Order", order)
-			block := c.GetBlockByHash(hash)
+			block := c.GetBlockOrCandidateByHash(hash)
 			if block == nil {
 				c.sl.missingBlockFeed.Send(types.BlockRequest{Hash: hash, Entropy: entropy}) // Using the missing parent feed to ask for the block
 			} else {
@@ -378,9 +394,16 @@ func (c *Core) addToAppendQueue(block *types.Block) error {
 		c.appendQueue.ContainsOrAdd(block.Hash(), blockNumberAndRetryCounter{block.NumberU64(), 0})
 	}
 
-	// prefetch data if dom block going into appendQueue, will need later on anyway
-	if nodeCtx < 2 {
-		c.sl.subClients[block.Location().SubIndex()].DownloadBlocksInManifest(context.Background(), block.Hash(), block.SubManifest(), block.ParentEntropy())
+	return nil
+}
+
+func (c *Core) addToPrefetchQueue(block *types.Block) error {
+	if len(c.prefetchQueue.Keys()) < 10 {
+		if !c.prefetchQueue.Contains(block.Hash()) {
+			fmt.Println("Calling prefetch", block.Header().NumberU64(), block.Header().Location().Name())
+			c.sl.subClients[block.Location().SubIndex()].DownloadBlocksInManifest(context.Background(), block.Hash(), block.SubManifest(), block.ParentEntropy())
+			c.prefetchQueue.ContainsOrAdd(block.Hash(), block)
+		}
 	}
 
 	return nil
@@ -389,6 +412,10 @@ func (c *Core) addToAppendQueue(block *types.Block) error {
 // removeFromAppendQueue removes a block from the append queue
 func (c *Core) removeFromAppendQueue(block *types.Block) {
 	c.appendQueue.Remove(block.Hash())
+}
+
+func (c *Core) removeFromPrefetchQueue(block *types.Block) {
+	c.prefetchQueue.Remove(block.Hash())
 }
 
 // updateAppendQueue is a time to procAppendQueue
