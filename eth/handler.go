@@ -47,6 +47,9 @@ const (
 	// missingBlockChanSize is the size of channel listening to the MissingBlockEvent
 	missingBlockChanSize = 60
 
+	// collectManifestChanSize is the size of channel listening to the CollectManifestEvent
+	collectManifestChanSize = 60
+
 	// minPeerSend is the threshold for sending the block updates. If
 	// sqrt of len(peers) is less than 5 we make the block announcement
 	// to as much as minPeerSend peers otherwise send it to sqrt of len(peers).
@@ -124,6 +127,9 @@ type handler struct {
 	minedBlockSub   *event.TypeMuxSubscription
 	missingBlockCh  chan types.BlockRequest
 	missingBlockSub event.Subscription
+
+	collectManifestCh  chan types.BlockManifest
+	collectManifestSub event.Subscription
 
 	whitelist map[uint64]common.Hash
 
@@ -329,6 +335,10 @@ func (h *handler) Start(maxPeers int) {
 	h.missingBlockSub = h.core.SubscribeMissingBlockEvent(h.missingBlockCh)
 	go h.missingBlockLoop()
 
+	h.collectManifestCh = make(chan types.BlockManifest, collectManifestChanSize)
+	h.collectManifestSub = h.core.SubscribeCollectManifestEvent(h.collectManifestCh)
+	// go h.collectManifestLoop()
+
 	// broadcast mined blocks
 	h.wg.Add(1)
 	h.minedBlockSub = h.eventMux.Subscribe(core.NewMinedBlockEvent{})
@@ -494,7 +504,7 @@ func (h *handler) missingBlockLoop() {
 			rand.Shuffle(len(allPeers), func(i, j int) { allPeers[i], allPeers[j] = allPeers[j], allPeers[i] })
 
 			for _, peer := range allPeers {
-				log.Trace("Fetching the missing parent from", "peer", peer.ID(), "hash", blockRequest.Hash)
+				log.Info("Fetching the missing parent from", "peer", peer.ID(), "hash", blockRequest.Hash)
 				_, _, peerEntropy, _ := peer.Head()
 				if peerEntropy != nil {
 					if peerEntropy.Cmp(blockRequest.Entropy) > 0 {

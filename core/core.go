@@ -377,6 +377,12 @@ func (c *Core) addToAppendQueue(block *types.Block) error {
 	if order == nodeCtx {
 		c.appendQueue.ContainsOrAdd(block.Hash(), blockNumberAndRetryCounter{block.NumberU64(), 0})
 	}
+
+	// prefetch data if dom block going into appendQueue, will need later on anyway
+	if nodeCtx < 2 && block.NumberU64()-c.CurrentHeader().NumberU64() < 10 {
+		c.sl.subClients[block.Location().SubIndex()].DownloadBlocksInManifest(context.Background(), block.Hash(), block.SubManifest(), block.ParentEntropy())
+	}
+
 	return nil
 }
 
@@ -472,6 +478,10 @@ func (c *Core) BadHashExistsInChain() bool {
 
 func (c *Core) SubscribeMissingBlockEvent(ch chan<- types.BlockRequest) event.Subscription {
 	return c.sl.SubscribeMissingBlockEvent(ch)
+}
+
+func (c *Core) SubscribeCollectManifestEvent(ch chan<- types.BlockManifest) event.Subscription {
+	return c.sl.SubscribeCollectManifestEvent(ch)
 }
 
 // InsertChainWithoutSealVerification works exactly the same
