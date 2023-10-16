@@ -171,6 +171,7 @@ func (c *Core) InsertChain(blocks types.Blocks) (int, error) {
 					err.Error() == ErrPendingEtxNotFound.Error() {
 					if nodeCtx != common.ZONE_CTX && c.sl.subClients[block.Location().SubIndex()] != nil {
 						c.sl.subClients[block.Location().SubIndex()].DownloadBlocksInManifest(context.Background(), block.Hash(), block.SubManifest(), block.ParentEntropy())
+						// c.sl.collectManifestFeed.Send(block.SubManifest())
 					}
 				}
 				return idx, ErrPendingBlock
@@ -406,6 +407,7 @@ func (c *Core) addToPrefetchQueue(block *types.Block) error {
 			fmt.Println("Calling prefetch", block.Header().NumberU64(), block.Header().Location().Name())
 			c.sl.subClients[block.Location().SubIndex()].DownloadBlocksInManifest(context.Background(), block.Hash(), block.SubManifest(), block.ParentEntropy())
 			c.prefetchQueue.ContainsOrAdd(block.Hash(), block)
+			// c.sl.collectManifestFeed.Send(block.SubManifest())
 		}
 	}
 
@@ -628,15 +630,19 @@ func (c *Core) Append(header *types.Header, manifest types.BlockManifest, domPen
 
 func (c *Core) DownloadBlocksInManifest(blockHash common.Hash, manifest types.BlockManifest, entropy *big.Int) {
 	// Fetch the blocks for each hash in the manifest
-	for _, m := range manifest {
-		block := c.GetBlockOrCandidateByHash(m)
-		if block == nil {
-			fmt.Println("missing block feed 7", m)
-			c.sl.missingBlockFeed.Send(types.BlockRequest{Hash: m, Entropy: entropy})
-		} else {
-			c.addToQueueIfNotAppended(block)
-		}
-	}
+
+	fmt.Println("fetch manifest", manifest)
+	c.sl.collectManifestFeed.Send(manifest)
+
+	// for _, m := range manifest {
+	// 	block := c.GetBlockOrCandidateByHash(m)
+	// 	if block == nil {
+	// 		fmt.Println("missing block feed 7", m)
+	// 		c.sl.missingBlockFeed.Send(types.BlockRequest{Hash: m, Entropy: entropy})
+	// 	} else {
+	// 		c.addToQueueIfNotAppended(block)
+	// 	}
+	// }
 	if common.NodeLocation.Context() == common.REGION_CTX {
 		block := c.GetBlockOrCandidateByHash(blockHash)
 		if block != nil {

@@ -18,6 +18,7 @@ package eth
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
@@ -136,6 +137,8 @@ type handler struct {
 	// channels for fetcher, syncer, txsyncLoop
 	txsyncCh chan *txsync
 	quitSync chan struct{}
+
+	doneCh chan error // non-nil when sync is running
 
 	chainSync *chainSyncer
 	wg        sync.WaitGroup
@@ -333,11 +336,11 @@ func (h *handler) Start(maxPeers int) {
 	h.wg.Add(1)
 	h.missingBlockCh = make(chan types.BlockRequest, missingBlockChanSize)
 	h.missingBlockSub = h.core.SubscribeMissingBlockEvent(h.missingBlockCh)
-	go h.missingBlockLoop()
+	// go h.missingBlockLoop()
 
 	h.collectManifestCh = make(chan types.BlockManifest, collectManifestChanSize)
 	h.collectManifestSub = h.core.SubscribeCollectManifestEvent(h.collectManifestCh)
-	// go h.collectManifestLoop()
+	go h.collectManifestLoop()
 
 	// broadcast mined blocks
 	h.wg.Add(1)
@@ -360,6 +363,7 @@ func (h *handler) Stop() {
 	}
 	h.minedBlockSub.Unsubscribe()   // quits blockBroadcastLoop
 	h.missingBlockSub.Unsubscribe() // quits missingBlockLoop
+	h.collectManifestSub.Unsubscribe()
 
 	// Quit chainSync and txsync64.
 	// After this is done, no new peers will be accepted.
@@ -518,6 +522,37 @@ func (h *handler) missingBlockLoop() {
 			}
 		case <-h.missingBlockSub.Err():
 			return
+		}
+	}
+}
+
+func (h *handler) collectManifestLoop() {
+	defer h.wg.Done()
+	for {
+		select {
+		case manifestRequest := <-h.collectManifestCh:
+			if h.doneCh != nil {
+				continue
+			}
+
+			peer := h.peers.peerWithHighestEntropy()
+
+			if peer == nil {
+				log.Warn("No peer found to collect manifest")
+				continue
+			}
+			fmt.Println("Got manifests", manifestRequest)
+			hash := manifestRequest[len(manifestRequest)-1]
+
+			_, _, entropy, _ := peer.Head()
+			log.Info("Fetching the manifest from", "peer", peer.ID(), "hash", hash)
+			h.doneCh = make(chan error, 1)
+			err := h.downloader.Synchronise(peer.ID(), hash, entropy, downloader.FullSync)
+			log.Info("Downloader exited", "err", err)
+			if err != nil {
+				fmt.Println("Error here!", err)
+			}
+			h.doneCh = nil
 		}
 	}
 }

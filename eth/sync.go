@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	defaultMinSyncPeers = 3 // Amount of peers desired to start syncing
+	defaultMinSyncPeers = 1 // Amount of peers desired to start syncing
 
 	// This is the target size for the packs of transactions sent by txsyncLoop64.
 	// A pack can get larger than this if a single transactions exceeds this size.
