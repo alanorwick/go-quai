@@ -340,7 +340,7 @@ func (h *handler) Start(maxPeers int) {
 
 	h.collectManifestCh = make(chan types.BlockManifest, collectManifestChanSize)
 	h.collectManifestSub = h.core.SubscribeCollectManifestEvent(h.collectManifestCh)
-	go h.collectManifestLoop()
+	// go h.collectManifestLoop()
 
 	// broadcast mined blocks
 	h.wg.Add(1)

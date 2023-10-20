@@ -585,6 +585,7 @@ func (c *Core) WriteBlock(block *types.Block) {
 		}
 	}
 	if c.GetHeaderOrCandidateByHash(block.Hash()) == nil {
+		log.Info("Write block to db", "num", block.NumberU64(), "hash", block.Hash())
 		c.sl.WriteBlock(block)
 	}
 

@@ -622,6 +622,7 @@ func (q *queue) expire(timeout time.Duration, pendPool map[string]*fetchRequest,
 func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh chan []*types.Header) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
+	fmt.Println("got headers", len(headers))
 
 	var logger log.Logger
 	if len(id) < 16 {
@@ -759,6 +760,7 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, uncleLi
 		result.SubManifest = manifests[index]
 		result.SetBodyDone()
 	}
+	fmt.Println("got bodies", len(manifests))
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool,
 		bodyReqTimer, len(txLists), validate, reconstruct)
 }
