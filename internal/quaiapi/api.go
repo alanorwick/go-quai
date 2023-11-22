@@ -1069,10 +1069,11 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.TransactionIndex = (*hexutil.Uint64)(&index)
 	}
 	if tx.Type() != types.ExternalTxType {
-		v, r, s := tx.RawSignatureValues()
-		result.V = (*hexutil.Big)(v)
-		result.R = (*hexutil.Big)(r)
-		result.S = (*hexutil.Big)(s)
+		// TODO fix for diff sig types
+		// v, r, s := tx.RawSignatureValues()
+		// result.V = (*hexutil.Big)(v)
+		// result.R = (*hexutil.Big)(r)
+		// result.S = (*hexutil.Big)(s)
 	}
 	al := tx.AccessList()
 	result.Accesses = &al

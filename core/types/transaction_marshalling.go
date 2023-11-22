@@ -23,6 +23,7 @@ import (
 
 	"github.com/dominant-strategies/go-quai/common"
 	"github.com/dominant-strategies/go-quai/common/hexutil"
+	"github.com/dominant-strategies/go-quai/crypto/sr25519"
 )
 
 // txJSON is the JSON representation of transactions.
@@ -159,7 +160,23 @@ func (t *Transaction) UnmarshalJSON(input []byte) error {
 		itx.Signature = *dec.Signature
 		// withSignature := itx.V.Sign() != 0 || itx.R.Sign() != 0 || itx.S.Sign() != 0
 		if itx.txType() != ExternalTxType {
-			if err := sanityCheckSignature(itx.Signature); err != nil {
+			switch (itx.FromPubKey == sr25519.PublicKey{}) {
+			case true:
+				v, r, s, err := DecodeECDSASignature(itx.Signature)
+				if err != nil {
+					return err
+				}
+				if err := sanityCheckECDSASignature(v, r, s); err != nil {
+					return err
+				}
+			case false:
+				from := itx.FromPubKey
+				decodedPub := from.Encode()
+
+				err := sr25519.VerifySignature(decodedPub, itx.Signature, nil)
+				if err != nil {
+					return err
+				}
 				return err
 			}
 		}

@@ -278,6 +278,16 @@ func decodeSignature(sig []byte) (r, s, v *big.Int) {
 	return r, s, v
 }
 
+func DecodeECDSASignature(sig []byte) (r, s, v *big.Int, err error) {
+	if len(sig) != crypto.SignatureLength {
+		return nil, nil, nil, fmt.Errorf("wrong size for signature: got %d, want %d", len(sig), crypto.SignatureLength)
+	}
+	r = new(big.Int).SetBytes(sig[:32])
+	s = new(big.Int).SetBytes(sig[32:64])
+	v = new(big.Int).SetBytes([]byte{sig[64] + 27})
+	return r, s, v, nil
+}
+
 func recoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, error) {
 	if Vb.BitLen() > 8 {
 		return common.ZeroAddr, ErrInvalidSig

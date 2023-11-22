@@ -21,8 +21,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ChainSafe/go-schnorrkel"
 	"github.com/dominant-strategies/go-quai/crypto"
 	"github.com/dominant-strategies/go-quai/crypto/sr25519"
+	"github.com/gtank/merlin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -105,4 +107,77 @@ func TestInternalSigningRistretto(t *testing.T) {
 	if from.String() != addr.String() {
 		t.Errorf("exected from and address to be equal. Got %x want %x", from, addr)
 	}
+}
+
+func TestBatchVerification(t *testing.T) {
+	const numTransactions = 100
+	var (
+		transcripts []*merlin.Transcript
+		signatures  []*schnorrkel.Signature
+		publicKeys  []*schnorrkel.PublicKey
+		txs         []*Transaction
+	)
+
+	// Generate transactions and signatures
+	for i := 0; i < numTransactions; i++ {
+		keypair, err := sr25519.GenerateKeypair()
+		require.NoError(t, err)
+		addr := keypair.Public().Address()
+
+		// Create transaction (similar to the one in TestInternalSigningRistretto)
+		txData := &InternalTx{
+			Nonce:      0,
+			FromPubKey: *keypair.Public().(*sr25519.PublicKey),
+			To:         &addr,
+			Gas:        21000,
+			Value:      big.NewInt(1),
+			ChainID:    big.NewInt(1),
+			GasTipCap:  big.NewInt(1),
+			GasFeeCap:  big.NewInt(1)}
+		tx := NewTx(txData)
+
+		signer := NewSigner(big.NewInt(1))
+		msg := signer.Hash(tx)
+		sigin, err := keypair.Sign(msg.Bytes())
+		require.NoError(t, err)
+
+		tx, err = tx.WithSignature(signer, sigin)
+		require.NoError(t, err)
+
+		// Append to slices for batch verification
+		transcripts = append(transcripts, merlin.NewTranscript(fmt.Sprintf("hello_%d", i)))
+
+		var sigBytes [64]byte
+		copy(sigBytes[:], sigin)
+
+		sig := &schnorrkel.Signature{}
+		err = sig.Decode(sigBytes)
+		if err != nil {
+			t.Errorf("sig cannot be decoded")
+		}
+		sr25519PubKey := keypair.Public().(*sr25519.PublicKey)
+		schnorrkelPubKey, err := schnorrkel.NewPublicKeyFromHex(sr25519PubKey.Hex()) // This is an assumed direct conversion
+		if err != nil {
+			t.Errorf("sig cannot be decoded")
+		}
+
+		signatures = append(signatures, sig)
+		publicKeys = append(publicKeys, schnorrkelPubKey)
+		txs = append(txs, tx)
+	}
+
+	// Batch verification
+	ok, err := schnorrkel.VerifyBatch(transcripts, signatures, publicKeys)
+	if err != nil {
+		panic(err)
+	}
+
+	if !ok {
+		fmt.Println("failed to batch verify signatures")
+		return
+	}
+
+	fmt.Println("batch verified signatures")
+
+	// Additional checks can be performed here if necessary
 }

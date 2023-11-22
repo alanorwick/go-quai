@@ -27,6 +27,7 @@ import (
 
 	"github.com/dominant-strategies/go-quai/common"
 	"github.com/dominant-strategies/go-quai/common/math"
+	"github.com/dominant-strategies/go-quai/crypto"
 	"github.com/dominant-strategies/go-quai/crypto/sr25519"
 	"github.com/dominant-strategies/go-quai/rlp"
 )
@@ -182,10 +183,10 @@ func (tx *Transaction) setDecoded(inner TxData, size int) {
 	}
 }
 
-func sanityCheckSignature(sig []byte) error {
-	// if !crypto.ValidateSignatureValues(byte(v.Uint64()), r, s) {
-	// 	return ErrInvalidSig
-	// }
+func sanityCheckECDSASignature(v *big.Int, r *big.Int, s *big.Int) error {
+	if !crypto.ValidateSignatureValues(byte(v.Uint64()), r, s) {
+		return ErrInvalidSig
+	}
 	return nil
 }
 
