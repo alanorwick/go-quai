@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ChainSafe/go-schnorrkel"
 	"github.com/dominant-strategies/go-quai/crypto"
@@ -109,8 +110,9 @@ func TestInternalSigningRistretto(t *testing.T) {
 	}
 }
 
+const numTransactions = 10000
+
 func TestBatchVerification(t *testing.T) {
-	const numTransactions = 100
 	var (
 		transcripts []*merlin.Transcript
 		signatures  []*schnorrkel.Signature
@@ -167,10 +169,18 @@ func TestBatchVerification(t *testing.T) {
 	}
 
 	// Batch verification
+
+	fmt.Println("tik: starting batch verification")
+	start := time.Now()
+
 	ok, err := schnorrkel.VerifyBatch(transcripts, signatures, publicKeys)
 	if err != nil {
 		panic(err)
 	}
+
+	elapsed := time.Since(start)
+	fmt.Println("tok: batch verification completed")
+	fmt.Printf("Time taken: %s\n", elapsed)
 
 	if !ok {
 		fmt.Println("failed to batch verify signatures")
@@ -178,6 +188,46 @@ func TestBatchVerification(t *testing.T) {
 	}
 
 	fmt.Println("batch verified signatures")
+}
 
-	// Additional checks can be performed here if necessary
+func TestVerifySignature100Times(t *testing.T) {
+	var (
+		txs []*Transaction
+	)
+	signer := NewSigner(big.NewInt(18))
+
+	// Generate transactions and signatures
+	for i := 0; i < numTransactions; i++ {
+		key, _ := crypto.GenerateKey()
+		addr := crypto.PubkeyToAddress(key.PublicKey)
+
+		txData := &InternalTx{
+			Nonce:     0,
+			To:        &addr,
+			Gas:       21000,
+			Value:     big.NewInt(1),
+			ChainID:   big.NewInt(1),
+			GasTipCap: big.NewInt(1),
+			GasFeeCap: big.NewInt(1),
+		}
+		tx, err := SignTx(NewTx(txData), signer, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		txs = append(txs, tx)
+	}
+
+	fmt.Println("tik: starting batch verification")
+	start := time.Now()
+
+	for i := 0; i < len(txs); i++ {
+		_, err := Sender(signer, txs[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	elapsed := time.Since(start)
+	fmt.Println("tok: batch verification completed")
+	fmt.Printf("Time taken: %s\n", elapsed)
 }

@@ -176,7 +176,7 @@ func (s SignerV1) Sender(tx *Transaction) (common.Address, error) {
 		}
 
 		// DynamicFee txs are defined to use 0 and 1 as their recovery
-		// id, add 27 to become equivalent to unprotected signatures.
+		// id, add 27 to become equivalent to ufnprotected signatures.
 		V = new(big.Int).Add(V, big.NewInt(27))
 		if tx.ChainId().Cmp(s.chainId) != 0 {
 			return common.ZeroAddr, ErrInvalidChainId
@@ -184,10 +184,9 @@ func (s SignerV1) Sender(tx *Transaction) (common.Address, error) {
 		return recoverPlain(s.Hash(tx), R, S, V)
 	case false:
 		from := tx.FromPubKey()
-		fmt.Println(&from)
 		decodedPub := from.Encode()
-		hex := from.Hex()
-		fmt.Println(hex)
+		// hex := from.Hex()
+		// fmt.Println(hex)
 
 		err := sr25519.VerifySignature(decodedPub, tx.RawSignatureValues(), s.Hash(tx).Bytes())
 		if err != nil {
