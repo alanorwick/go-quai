@@ -23,6 +23,7 @@ import (
 
 	"github.com/dominant-strategies/go-quai/common"
 	"github.com/dominant-strategies/go-quai/common/hexutil"
+	"github.com/dominant-strategies/go-quai/crypto/sr25519"
 )
 
 // txJSON is the JSON representation of transactions.
@@ -41,10 +42,8 @@ type txJSON struct {
 	AccessList           *AccessList     `json:"accessList"`
 
 	// Optional fields only present for internal transactions
-	ChainID *hexutil.Big `json:"chainId,omitempty"`
-	V       *hexutil.Big `json:"v,omitempty"`
-	R       *hexutil.Big `json:"r,omitempty"`
-	S       *hexutil.Big `json:"s,omitempty"`
+	ChainID   *hexutil.Big   `json:"chainId,omitempty"`
+	Signature *hexutil.Bytes `json:"sig,omitempty"`
 
 	// Optional fields only present for external transactions
 	Sender *common.Address `json:"sender,omitempty"`
@@ -78,9 +77,7 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 		enc.Value = (*hexutil.Big)(tx.Value)
 		enc.Data = (*hexutil.Bytes)(&tx.Data)
 		enc.To = t.To()
-		enc.V = (*hexutil.Big)(tx.V)
-		enc.R = (*hexutil.Big)(tx.R)
-		enc.S = (*hexutil.Big)(tx.S)
+		enc.Signature = (*hexutil.Bytes)(&tx.Signature)
 	case *ExternalTx:
 		enc.ChainID = (*hexutil.Big)(tx.ChainID)
 		enc.AccessList = &tx.AccessList
@@ -102,9 +99,7 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 		enc.Value = (*hexutil.Big)(tx.Value)
 		enc.Data = (*hexutil.Bytes)(&tx.Data)
 		enc.To = t.To()
-		enc.V = (*hexutil.Big)(tx.V)
-		enc.R = (*hexutil.Big)(tx.R)
-		enc.S = (*hexutil.Big)(tx.S)
+		enc.Signature = (*hexutil.Bytes)(&tx.Signature)
 		enc.ETXGasLimit = (*hexutil.Uint64)(&tx.ETXGasLimit)
 		enc.ETXGasPrice = (*hexutil.Big)(tx.ETXGasPrice)
 		enc.ETXGasTip = (*hexutil.Big)(tx.ETXGasTip)
@@ -162,21 +157,26 @@ func (t *Transaction) UnmarshalJSON(input []byte) error {
 			return errors.New("missing required field 'input' in internal transaction")
 		}
 		itx.Data = *dec.Data
-		if dec.V == nil {
-			return errors.New("missing required field 'v' in internal transaction")
-		}
-		itx.V = (*big.Int)(dec.V)
-		if dec.R == nil {
-			return errors.New("missing required field 'r' in internal transaction")
-		}
-		itx.R = (*big.Int)(dec.R)
-		if dec.S == nil {
-			return errors.New("missing required field 's' in internal transaction")
-		}
-		itx.S = (*big.Int)(dec.S)
-		withSignature := itx.V.Sign() != 0 || itx.R.Sign() != 0 || itx.S.Sign() != 0
-		if withSignature && itx.txType() != ExternalTxType {
-			if err := sanityCheckSignature(itx.V, itx.R, itx.S); err != nil {
+		itx.Signature = *dec.Signature
+		// withSignature := itx.V.Sign() != 0 || itx.R.Sign() != 0 || itx.S.Sign() != 0
+		if itx.txType() != ExternalTxType {
+			switch (itx.FromPubKey == sr25519.PublicKey{}) {
+			case true:
+				v, r, s, err := DecodeECDSASignature(itx.Signature)
+				if err != nil {
+					return err
+				}
+				if err := sanityCheckECDSASignature(v, r, s); err != nil {
+					return err
+				}
+			case false:
+				from := itx.FromPubKey
+				decodedPub := from.Encode()
+
+				err := sr25519.VerifySignature(decodedPub, itx.Signature, nil)
+				if err != nil {
+					return err
+				}
 				return err
 			}
 		}
@@ -262,24 +262,14 @@ func (t *Transaction) UnmarshalJSON(input []byte) error {
 			return errors.New("missing required field 'input' in internalToExternal transaction")
 		}
 		itx.Data = *dec.Data
-		if dec.V == nil {
-			return errors.New("missing required field 'v' in internalToExternal transaction")
-		}
-		itx.V = (*big.Int)(dec.V)
-		if dec.R == nil {
-			return errors.New("missing required field 'r' in internalToExternal transaction")
-		}
-		itx.R = (*big.Int)(dec.R)
-		if dec.S == nil {
-			return errors.New("missing required field 's' in internalToExternal transaction")
-		}
-		itx.S = (*big.Int)(dec.S)
-		withSignature := itx.V.Sign() != 0 || itx.R.Sign() != 0 || itx.S.Sign() != 0
-		if withSignature && itx.txType() != ExternalTxType {
-			if err := sanityCheckSignature(itx.V, itx.R, itx.S); err != nil {
-				return err
-			}
-		}
+		itx.Signature = *dec.Signature
+		// itx.S = (*big.Int)(dec.S)
+		// withSignature := itx.V.Sign() != 0 || itx.R.Sign() != 0 || itx.S.Sign() != 0
+		// if withSignature && itx.txType() != ExternalTxType {
+		// 	if err := sanityCheckSignature(itx.V, itx.R, itx.S); err != nil {
+		// 		return err
+		// 	}
+		// }
 		if dec.ETXGasLimit == nil {
 			return errors.New("missing required field 'etxGasLimit' in internalToExternal transaction")
 		}
