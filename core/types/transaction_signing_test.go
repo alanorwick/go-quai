@@ -186,8 +186,63 @@ func TestBatchVerification(t *testing.T) {
 		fmt.Println("failed to batch verify signatures")
 		return
 	}
+}
 
-	fmt.Println("batch verified signatures")
+func TestSingleRistrettoVerification(t *testing.T) {
+	var (
+		txs []*Transaction
+	)
+	// Batch verification
+	signer := NewSigner(big.NewInt(18))
+	// Generate transactions and signatures
+	for i := 0; i < numTransactions; i++ {
+		keypair, err := sr25519.GenerateKeypair()
+		require.NoError(t, err)
+		addr := keypair.Public().Address()
+
+		pub := keypair.Public().(*sr25519.PublicKey)
+
+		txData := &InternalTx{
+			Nonce:      0,
+			FromPubKey: *pub,
+			To:         &addr,
+			Gas:        21000,
+			Value:      big.NewInt(1),
+			ChainID:    big.NewInt(1),
+			GasTipCap:  big.NewInt(1),
+			GasFeeCap:  big.NewInt(1),
+		}
+
+		tx := NewTx(txData)
+		msg := signer.Hash(tx)
+
+		sig, err := keypair.Sign(msg.Bytes())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tx, err = tx.WithSignature(signer, sig)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		require.NoError(t, err)
+		txs = append(txs, tx)
+	}
+
+	fmt.Println("tik: starting batch verification")
+	start := time.Now()
+
+	for i := 0; i < len(txs); i++ {
+		_, err := Sender(signer, txs[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	elapsed := time.Since(start)
+	fmt.Println("tok: ristretto linear verification completed")
+	fmt.Printf("Time taken: %s\n", elapsed)
 }
 
 func TestVerifySignature100Times(t *testing.T) {
