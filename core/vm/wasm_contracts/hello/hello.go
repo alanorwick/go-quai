@@ -3,19 +3,16 @@ package main
 // main is required for TinyGo to compile to Wasm.
 func main() {}
 
-//export run
-//go:linkname run
+//export main
 func run() {
 	hello()
 }
 
-//export logHelloWorld
-//go:linkname logHelloWorld
-func logHelloWorld()
-
-//export hello
+// hello is a simple function with no host calls.
 func hello() {
-	// 🖐 a wasm module cannot print something
-	//fmt.Println(x,y)
-	logHelloWorld()
+	// Perform your logic here. Remember that you cannot use
+	// functions like fmt.Println to output to the console,
+	// as they are host functions.
+	// Instead, you can implement logic that can be observed
+	// via WebAssembly's memory or exported functions.
 }
