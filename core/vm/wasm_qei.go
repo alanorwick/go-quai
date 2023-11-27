@@ -134,7 +134,10 @@ func (vm *WasmVM) LinkHost(in *WASMInterpreter) (err error) {
 	vm.store = wasmtime.NewStore(vm.engine)
 	vm.store.AddFuel(in.Contract.Gas)
 	vm.linker = wasmtime.NewLinker(vm.engine)
-
+	err = vm.linker.DefineWasi()
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Create a new memory instance.
 	memoryType := wasmtime.NewMemoryType(300, true, 300)
 	vm.memory, err = wasmtime.NewMemory(vm.store, memoryType)
