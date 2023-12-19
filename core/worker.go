@@ -499,6 +499,11 @@ func (w *worker) GeneratePendingHeader(block *types.Block, fill bool) (*types.He
 	}
 
 	if nodeCtx == common.ZONE_CTX && w.hc.ProcessingState() {
+		coinbaseTx, err := createCoinbaseTx(int32(work.header.NumberU64(w.hc.NodeCtx())), work.header.Coinbase())
+		if err != nil {
+			return nil, err
+		}
+		work.txs = append(work.txs, coinbaseTx)
 		// Fill pending transactions from the txpool
 		w.adjustGasLimit(nil, work, block)
 		if fill {
@@ -519,19 +524,6 @@ func (w *worker) GeneratePendingHeader(block *types.Block, fill bool) (*types.He
 		w.current.discard()
 	}
 	w.current = work
-
-	extraNonce := uint64(0)
-	coinbaseScript, err := standardCoinbaseScript(int32(block.NumberU64()), extraNonce)
-	if err != nil {
-		return nil, err
-	}
-	coinbaseTx, err := createCoinbaseTx(coinbaseScript,
-		int32(work.header.NumberU64()), work.header.Coinbase())
-	if err != nil {
-		return nil, err
-	}
-
-	work.txs = append(work.txs, coinbaseTx)
 
 	// Create a local environment copy, avoid the data race with snapshot state.
 	newBlock, err := w.FinalizeAssemble(w.hc, work.header, block, work.state, work.txs, work.unclelist(), work.etxs, work.subManifest, work.receipts)
@@ -725,6 +717,24 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 		tx := txs.Peek()
 		if tx == nil {
 			break
+		}
+		if tx.Type() == types.UtxoTxType {
+			if err := w.hc.VerifyUTXOsForTx(tx); err != nil { // No need to do sig verification again. Perhaps it should be cached?
+				w.logger.WithField("err", err).Error("UTXO tx verification failed")
+				txs.PopNoSort()
+				continue
+			}
+			txGas := types.CalculateUtxoTxGas(tx)
+			gasUsed := env.header.GasUsed()
+			env.header.SetGasUsed(gasUsed + txGas)            // set utxo tx gas to 21000 for now
+			if err := env.gasPool.SubGas(txGas); err != nil { // set utxo tx gas to 21000 for now
+				w.logger.WithField("err", err).Error("UTXO tx gas pool error")
+				txs.PopNoSort()
+				continue
+			}
+			env.txs = append(env.txs, tx)
+			txs.PopNoSort()
+			continue
 		}
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
@@ -932,8 +942,13 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, block *typ
 	if err != nil {
 		return
 	}
-	if len(pending) > 0 {
+	pendingUtxoTxs := w.txPool.UTXOPoolPending()
+
+	if len(pending) > 0 || len(pendingUtxoTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, pending, env.header.BaseFee(), true)
+		for _, tx := range pendingUtxoTxs {
+			txs.AppendNoSort(tx) // put all utxos at the top for now
+		}
 		if w.commitTransactions(env, txs, interrupt) {
 			return
 		}
@@ -979,7 +994,7 @@ func (w *worker) FinalizeAssemble(chain consensus.ChainHeaderReader, header *typ
 		return nil, err
 	}
 
-	fmt.Println("block utxo here", len(block.UTXOs()))
+	fmt.Println("block utxo len", len(block.UTXOs()))
 	manifestHash := w.ComputeManifestHash(parent.Header())
 
 	if w.hc.ProcessingState() {

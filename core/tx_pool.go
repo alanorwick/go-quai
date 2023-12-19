@@ -141,9 +141,10 @@ const (
 // some pre checks in tx pool and event subscribers.
 type blockChain interface {
 	CurrentBlock() *types.Block
+	CurrentStateHeader() *types.Header
 	GetBlock(hash common.Hash, number uint64) *types.Block
 	StateAt(root common.Hash) (*state.StateDB, error)
-
+	FetchUtxosMain(view *types.UtxoViewpoint, outpoints []types.OutPoint) error
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 }
 
@@ -270,9 +271,9 @@ type TxPool struct {
 	pendingNonces *txNoncer      // Pending state tracking virtual nonces
 	currentMaxGas uint64         // Current gas limit for transaction caps
 
-	locals  *accountSet // Set of local transaction to exempt from eviction rules
-	journal *txJournal  // Journal of local transaction to back up to disk
-
+	locals         *accountSet                                                 // Set of local transaction to exempt from eviction rules
+	journal        *txJournal                                                  // Journal of local transaction to back up to disk
+	utxoPool       map[common.Hash]*types.UtxoTxWithMinerFee                   // Utxo pool to store utxo transactions
 	pending        map[common.InternalAddress]*txList                          // All currently processable transactions
 	queue          map[common.InternalAddress]*txList                          // Queued but non-processable transactions
 	beats          map[common.InternalAddress]time.Time                        // Last heartbeat from each known account
@@ -344,6 +345,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		chain:           chain,
 		signer:          types.LatestSigner(chainconfig),
 		pending:         make(map[common.InternalAddress]*txList),
+		utxoPool:        make(map[common.Hash]*types.UtxoTxWithMinerFee),
 		queue:           make(map[common.InternalAddress]*txList),
 		beats:           make(map[common.InternalAddress]time.Time),
 		senders:         orderedmap.New[common.Hash, common.InternalAddress](),
@@ -589,6 +591,13 @@ func (pool *TxPool) ContentFrom(addr common.InternalAddress) (types.Transactions
 		queued = list.Flatten()
 	}
 	return pending, queued
+}
+
+func (pool *TxPool) UTXOPoolPending() map[common.Hash]*types.UtxoTxWithMinerFee {
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+	// to do: check fees
+	return pool.utxoPool
 }
 
 // Pending retrieves all currently processable transactions, grouped by origin
@@ -1043,6 +1052,10 @@ func (pool *TxPool) addTxs(txs []*types.Transaction, local, sync bool) []error {
 			knownTxMeter.Add(1)
 			continue
 		}
+		if tx.Type() == types.UtxoTxType {
+			pool.addUtxoTx(tx)
+			continue
+		}
 		// Exclude transactions with invalid signatures as soon as
 		// possible and cache senders in transactions before
 		// obtaining lock
@@ -1105,12 +1118,66 @@ func (pool *TxPool) addTxs(txs []*types.Transaction, local, sync bool) []error {
 	return errs
 }
 
+func (pool *TxPool) addUtxoTx(tx *types.Transaction) error {
+	pool.mu.RLock()
+	if _, hasTx := pool.utxoPool[tx.Hash()]; hasTx {
+		pool.mu.RUnlock()
+		return ErrAlreadyKnown
+	}
+
+	pool.mu.RUnlock()
+
+	view := types.NewUtxoViewpoint(pool.chainconfig.Location)
+	needed := make([]types.OutPoint, 0, len(tx.TxIn()))
+	for _, txIn := range tx.TxIn() {
+		needed = append(needed, txIn.PreviousOutPoint)
+	}
+	pool.chain.FetchUtxosMain(view, needed)
+	if err := view.VerifyTxSignature(tx, pool.signer); err != nil {
+		fmt.Println("err sig", err)
+		return types.ErrInvalidSchnorrSig
+	}
+	if err := types.CheckUTXOTransactionSanity(tx, pool.chainconfig.Location); err != nil {
+		return err
+	}
+	height := pool.chain.CurrentStateHeader().NumberU64(pool.chainconfig.Location.Context())
+	fee, err := types.CheckTransactionInputs(tx, height, view)
+	if err != nil {
+		return err
+	}
+	pool.mu.Lock()
+	pool.utxoPool[tx.Hash()] = &types.UtxoTxWithMinerFee{tx, fee, 0}
+	pool.mu.Unlock()
+	pool.logger.WithFields(logrus.Fields{
+		"tx":  tx.Hash().String(),
+		"fee": fee,
+	}).Info("Added utxo tx to pool")
+	return nil
+}
+
+func (pool *TxPool) removeUtxoTx(tx *types.Transaction) {
+	pool.mu.Lock()
+	delete(pool.utxoPool, tx.Hash())
+	pool.mu.Unlock()
+}
+
+// Mempool lock must be held.
+func (pool *TxPool) removeUtxoTxsLocked(txs []*types.Transaction) {
+	for _, tx := range txs {
+		delete(pool.utxoPool, tx.Hash())
+	}
+}
+
 // addTxsLocked attempts to queue a batch of transactions if they are valid.
 // The transaction pool lock must be held.
 func (pool *TxPool) addTxsLocked(txs []*types.Transaction, local bool) ([]error, *accountSet) {
 	dirty := newAccountSet(pool.signer)
 	errs := make([]error, len(txs))
 	for i, tx := range txs {
+		if tx.Type() == types.UtxoTxType {
+			errs[i] = pool.addUtxoTx(tx)
+			continue
+		}
 		replaced, err := pool.add(tx, local)
 		errs[i] = err
 		if err == nil && !replaced {
@@ -1418,6 +1485,7 @@ func (pool *TxPool) runReorg(done chan struct{}, cancel chan struct{}, reset *tx
 
 // reset retrieves the current state of the blockchain and ensures the content
 // of the transaction pool is valid with regard to the chain state.
+// The mempool lock must be held by the caller.
 func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	nodeCtx := pool.chainconfig.Location.Context()
 	var start time.Time
@@ -1510,6 +1578,10 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 				reinject = types.TxDifference(discarded, included)
 			}
 		}
+	} else {
+		block := pool.chain.GetBlock(newHead.Hash(), newHead.Number(pool.chainconfig.Location.Context()).Uint64())
+		pool.removeUtxoTxsLocked(block.UTXOs())
+		pool.logger.WithField("count", len(block.UTXOs())).Debug("Removed utxo txs from pool")
 	}
 	// Initialize the internal state to the current head
 	if newHead == nil {

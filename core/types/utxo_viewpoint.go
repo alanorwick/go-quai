@@ -1,6 +1,13 @@
 package types
 
 import (
+	"github.com/dominant-strategies/go-quai/crypto"
+
+	"errors"
+	"fmt"
+
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/schnorr/musig2"
 	"github.com/dominant-strategies/go-quai/common"
 )
 
@@ -112,6 +119,7 @@ func NewUtxoEntry(
 type UtxoViewpoint struct {
 	Entries  map[OutPoint]*UtxoEntry
 	bestHash common.Hash
+	Location common.Location
 }
 
 // BestHash returns the hash of the best block in the chain the view currently
@@ -183,11 +191,16 @@ func (view *UtxoViewpoint) addTxOut(outpoint OutPoint, txOut *TxOut, isCoinBase 
 // unspendable to the view.  When the view already has entries for any of the
 // outputs, they are simply marked unspent.  All fields will be updated for
 // existing entries since it's possible it has changed during a reorg.
-func (view *UtxoViewpoint) AddTxOuts(tx *Transaction, blockHeight uint64) {
+func (view *UtxoViewpoint) AddTxOuts(tx *Transaction, block *Block) {
 	// Loop all of the transaction outputs and add those which are not
 	// provably unspendable.
 	isCoinBase := IsCoinBaseTx(tx)
-	prevOut := OutPoint{Hash: tx.Hash()}
+	var prevOut OutPoint
+	if isCoinBase {
+		prevOut = OutPoint{Hash: block.ParentHash(view.Location.Context())}
+	} else {
+		prevOut = OutPoint{Hash: tx.Hash()}
+	}
 	for txOutIdx, txOut := range tx.inner.txOut() {
 		// Update existing entries.  All fields are updated because it's
 		// possible (although extremely unlikely) that the existing
@@ -195,14 +208,15 @@ func (view *UtxoViewpoint) AddTxOuts(tx *Transaction, blockHeight uint64) {
 		// same hash.  This is allowed so long as the previous
 		// transaction is fully spent.
 		prevOut.Index = uint32(txOutIdx)
-		view.addTxOut(prevOut, txOut, isCoinBase, blockHeight)
+		view.addTxOut(prevOut, &txOut, isCoinBase, block.NumberU64(view.Location.Context()))
 	}
 }
 
 // NewUtxoViewpoint returns a new empty unspent transaction output view.
-func NewUtxoViewpoint() *UtxoViewpoint {
+func NewUtxoViewpoint(Location common.Location) *UtxoViewpoint {
 	return &UtxoViewpoint{
-		Entries: make(map[OutPoint]*UtxoEntry),
+		Entries:  make(map[OutPoint]*UtxoEntry),
+		Location: Location,
 	}
 }
 
@@ -211,11 +225,11 @@ func NewUtxoViewpoint() *UtxoViewpoint {
 // spent.  In addition, when the 'stxos' argument is not nil, it will be updated
 // to append an entry for each spent txout.  An error will be returned if the
 // view does not contain the required utxos.
-func (view *UtxoViewpoint) ConnectTransaction(tx *Transaction, blockHeight uint64, stxos *[]SpentTxOut) error {
+func (view *UtxoViewpoint) ConnectTransaction(tx *Transaction, block *Block, stxos *[]SpentTxOut) error {
 	// Coinbase transactions don't have any inputs to spend.
 	if IsCoinBaseTx(tx) {
 		// Add the transaction's outputs as available utxos.
-		view.AddTxOuts(tx, blockHeight)
+		view.AddTxOuts(tx, block)
 		return nil
 	}
 
@@ -227,7 +241,7 @@ func (view *UtxoViewpoint) ConnectTransaction(tx *Transaction, blockHeight uint6
 		// never happen unless there is a bug is introduced in the code.
 		entry := view.Entries[txIn.PreviousOutPoint]
 		if entry == nil {
-			return nil
+			return errors.New("unable to find unspent output " + txIn.PreviousOutPoint.Hash.String())
 		}
 
 		// Only create the stxo details if requested.
@@ -249,6 +263,65 @@ func (view *UtxoViewpoint) ConnectTransaction(tx *Transaction, blockHeight uint6
 	}
 
 	// Add the transaction's outputs as available utxos.
-	view.AddTxOuts(tx, blockHeight)
+	view.AddTxOuts(tx, block)
+	return nil
+}
+
+func (view *UtxoViewpoint) ConnectTransactions(block *Block, stxos *[]SpentTxOut) error {
+	for _, tx := range block.UTXOs() {
+		view.ConnectTransaction(tx, block, stxos)
+	}
+	// Update the best hash for view to include this block since all of its
+	// transactions have been connected.
+	view.SetBestHash(block.Hash())
+	return nil
+}
+
+func (view UtxoViewpoint) VerifyTxSignature(tx *Transaction, signer Signer) error {
+	pubKeys := make([]*btcec.PublicKey, 0)
+	for _, txIn := range tx.TxIn() {
+		entry := view.LookupEntry(txIn.PreviousOutPoint)
+		if entry == nil {
+			return errors.New("utxo not found " + txIn.PreviousOutPoint.Hash.String())
+		}
+
+		// Verify the pubkey
+		address := common.BytesToAddress(crypto.Keccak256(txIn.PubKey[1:])[12:], view.Location)
+		entryAddr := common.BytesToAddress(entry.Address, view.Location)
+		if !address.Equal(entryAddr) {
+			return errors.New("invalid address")
+		}
+
+		// We have the Public Key as 65 bytes uncompressed
+		pub, err := btcec.ParsePubKey(txIn.PubKey)
+		if err != nil {
+			return err
+		}
+
+		pubKeys = append(pubKeys, pub)
+	}
+
+	var finalKey *btcec.PublicKey
+	if len(tx.TxIn()) > 1 {
+		aggKey, _, _, err := musig2.AggregateKeys(
+			pubKeys, false,
+		)
+		if err != nil {
+			return err
+		}
+		finalKey = aggKey.FinalKey
+	} else {
+		finalKey = pubKeys[0]
+	}
+
+	fmt.Println("sig", common.Bytes2Hex(tx.UtxoSignature().Serialize()))
+	txDigestHash := signer.Hash(tx)
+
+	fmt.Println("UTXO VIEW")
+	fmt.Println("TX Digest Hash", common.Bytes2Hex(txDigestHash[:]))
+	fmt.Println("Pubkey", common.Bytes2Hex(finalKey.SerializeUncompressed()))
+	if !tx.UtxoSignature().Verify(txDigestHash[:], finalKey) {
+		return errors.New("invalid signature")
+	}
 	return nil
 }

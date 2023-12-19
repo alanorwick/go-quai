@@ -204,7 +204,6 @@ func (p *StateProcessor) Process(block *types.Block, etxSet types.EtxSet) (types
 	if parent == nil {
 		return types.Receipts{}, []*types.Log{}, nil, 0, errors.New("parent block is nil for the block given to process")
 	}
-
 	time1 := common.PrettyDuration(time.Since(start))
 
 	// Initialize a statedb
@@ -248,6 +247,7 @@ func (p *StateProcessor) Process(block *types.Block, etxSet types.EtxSet) (types
 	for i, tx := range block.Transactions()[1:] { // first tx is coinbase tx
 		startProcess := time.Now()
 		if tx.Type() == types.UtxoTxType {
+			*usedGas += types.CalculateUtxoTxGas(tx)
 			continue
 		}
 		msg, err := tx.AsMessageWithSender(types.MakeSigner(p.config, header.Number(nodeCtx)), header.BaseFee(), senders[tx.Hash()])
@@ -330,7 +330,8 @@ func (p *StateProcessor) Process(block *types.Block, etxSet types.EtxSet) (types
 	return receipts, allLogs, statedb, *usedGas, nil
 }
 
-func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM, etxRLimit, etxPLimit *int) (*types.Receipt, error) {
+func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM, etxRLimit, etxPLimit *int, logger *log.Logger) (*types.Receipt, error) {
+	nodeLocation := config.Location
 	// Create a new context to be used in the EVM environment.
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
@@ -696,7 +697,7 @@ func (p *StateProcessor) StateAtBlock(block *types.Block, reexec uint64, base *s
 		if currentBlock == nil {
 			return nil, errors.New("detached block found trying to regenerate state")
 		}
-		_, _, _, _, _, err := p.Process(currentBlock, etxSet)
+		_, _, _, _, err := p.Process(currentBlock, etxSet)
 		if err != nil {
 			return nil, fmt.Errorf("processing block %d failed: %v", current.NumberU64(nodeCtx), err)
 		}

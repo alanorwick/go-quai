@@ -1,6 +1,9 @@
 package types
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/dominant-strategies/go-quai/common"
 	"github.com/dominant-strategies/go-quai/common/math"
 )
@@ -13,7 +16,7 @@ import (
 //
 // This function only differs from IsCoinBase in that it works with a raw wire
 // transaction as opposed to a higher level util transaction.
-func IsCoinBaseTx(msgTx *Transaction) bool {
+func IsCoinBaseTx(msgTx *Transaction) bool { // remove this function
 	// A coin base must only have one transaction input.
 	if len(msgTx.inner.txIn()) != 1 {
 		return false
@@ -27,103 +30,6 @@ func IsCoinBaseTx(msgTx *Transaction) bool {
 	}
 
 	return true
-}
-
-// CheckTransactionSanity performs some preliminary checks on a transaction to
-// ensure it is sane.  These checks are context free.
-func CheckTransactionSanity(tx *UTXO) error {
-	// A transaction must have at least one input.
-	msgTx := tx.MsgTx()
-	if len(msgTx.TxIn) == 0 {
-		return nil
-	}
-
-	// A transaction must have at least one output.
-	if len(msgTx.TxOut) == 0 {
-		return nil
-	}
-
-	// A transaction must not exceed the maximum allowed block payload when
-	// serialized.
-	// serializedTxSize := tx.MsgTx().SerializeSizeStripped()
-	// if serializedTxSize > MaxBlockBaseSize {
-	// 	str := fmt.Sprintf("serialized transaction is too big - got "+
-	// 		"%d, max %d", serializedTxSize, MaxBlockBaseSize)
-	// 	return nil
-	// }
-
-	// Ensure the transaction amounts are in range.  Each transaction
-	// output must not be negative or more than the max allowed per
-	// transaction.  Also, the total of all outputs must abide by the same
-	// restrictions.  All amounts in a transaction are in a unit value known
-	// as a satoshi.  One bitcoin is a quantity of satoshi as defined by the
-	// SatoshiPerBitcoin constant.
-	// var totalSatoshi uint64
-	// for _, txOut := range msgTx.TxOut {
-	// 	satoshi := txOut.Value
-	// if satoshi < 0 {
-	// 	str := fmt.Sprintf("transaction output has negative "+
-	// 		"value of %v", satoshi)
-	// 	return ruleError(ErrBadTxOutValue, str)
-	// }
-	// if satoshi > btcutil.MaxSatoshi {
-	// 	str := fmt.Sprintf("transaction output value of %v is "+
-	// 		"higher than max allowed value of %v", satoshi,
-	// 		btcutil.MaxSatoshi)
-	// 	return ruleError(ErrBadTxOutValue, str)
-	// }
-
-	// Two's complement uint64 overflow guarantees that any overflow
-	// is detected and reported.  This is impossible for Bitcoin, but
-	// perhaps possible if an alt increases the total money supply.
-	// totalSatoshi += satoshi
-	// if totalSatoshi < 0 {
-	// 	str := fmt.Sprintf("total value of all transaction "+
-	// 		"outputs exceeds max allowed value of %v",
-	// 		btcutil.MaxSatoshi)
-	// 	return ruleError(ErrBadTxOutValue, str)
-	// }
-	// if totalSatoshi > btcutil.MaxSatoshi {
-	// 	str := fmt.Sprintf("total value of all transaction "+
-	// 		"outputs is %v which is higher than max "+
-	// 		"allowed value of %v", totalSatoshi,
-	// 		btcutil.MaxSatoshi)
-	// 	return ruleError(ErrBadTxOutValue, str)
-	// }
-	// }
-
-	// Check for duplicate transaction inputs.
-	// existingTxOut := make(map[wire.OutPoint]struct{})
-	// for _, txIn := range msgTx.TxIn {
-	// 	if _, exists := existingTxOut[txIn.PreviousOutPoint]; exists {
-	// 		return ruleError(ErrDuplicateTxInputs, "transaction "+
-	// 			"contains duplicate inputs")
-	// 	}
-	// 	existingTxOut[txIn.PreviousOutPoint] = struct{}{}
-	// }
-
-	// Coinbase script length must be between min and max length.
-	// if IsCoinBaseTx(tx.MsgTx()) {
-	// 	slen := len(msgTx.TxIn[0].SignatureScript)
-	// 	if slen < MinCoinbaseScriptLen || slen > MaxCoinbaseScriptLen {
-	// 		str := fmt.Sprintf("coinbase transaction script length "+
-	// 			"of %d is out of range (min: %d, max: %d)",
-	// 			slen, MinCoinbaseScriptLen, MaxCoinbaseScriptLen)
-	// 		return ruleError(ErrBadCoinbaseScriptLen, str)
-	// 	}
-	// } else {
-	// 	// Previous transaction outputs referenced by the inputs to this
-	// 	// transaction must not be null.
-	// 	for _, txIn := range msgTx.TxIn {
-	// 		if isNullOutpoint(&txIn.PreviousOutPoint) {
-	// 			return ruleError(ErrBadTxInput, "transaction "+
-	// 				"input refers to previous output that "+
-	// 				"is null")
-	// 		}
-	// 	}
-	//}
-
-	return nil
 }
 
 // CheckTransactionInputs performs a series of checks on the inputs to a
@@ -144,15 +50,15 @@ func CheckTransactionInputs(tx *Transaction, txHeight uint64, utxoView *UtxoView
 	}
 
 	var totalSatoshiIn uint64
-	for _, txIn := range tx.inner.txIn() {
+	for index, txIn := range tx.inner.txIn() {
 		// Ensure the referenced input transaction is available.
 		utxo := utxoView.LookupEntry(txIn.PreviousOutPoint)
-		if utxo == nil || utxo.IsSpent() {
-			// str := fmt.Sprintf("output %v referenced from "+
-			// 	"transaction %s:%d either does not exist or "+
-			// 	"has already been spent", txIn.PreviousOutPoint,
-			// 	tx.Hash(), txInIndex)
-			// return 0, ruleError(ErrMissingTxOut, str)
+		if utxo == nil || utxo.IsSpent() { // why comment this out?
+			str := fmt.Sprintf("output %v referenced from "+
+				"transaction %s:%d either does not exist or "+
+				"has already been spent", txIn.PreviousOutPoint,
+				tx.Hash(), index)
+			return 0, errors.New(str)
 		}
 
 		// Ensure the transaction is not spending coins which have not
@@ -179,11 +85,7 @@ func CheckTransactionInputs(tx *Transaction, txHeight uint64, utxoView *UtxoView
 		// bitcoin is a quantity of satoshi as defined by the
 		// SatoshiPerBitcoin constant.
 		originTxSatoshi := utxo.Amount
-		if originTxSatoshi < 0 {
-			// str := fmt.Sprintf("transaction output has negative "+
-			// 	"value of %v", btcutil.Amount(originTxSatoshi))
-			// return 0, ruleError(ErrBadTxOutValue, str)
-		}
+
 		// if originTxSatoshi > btcutil.MaxSatoshi {
 		// str := fmt.Sprintf("transaction output value of %v is "+
 		// 	"higher than max allowed value of %v",
@@ -195,16 +97,15 @@ func CheckTransactionInputs(tx *Transaction, txHeight uint64, utxoView *UtxoView
 		// The total of all outputs must not be more than the max
 		// allowed per transaction.  Also, we could potentially overflow
 		// the accumulator so check for overflow.
-		// lastSatoshiIn := totalSatoshiIn
-		// totalSatoshiIn += originTxSatoshi
-		// if totalSatoshiIn < lastSatoshiIn ||
-		// totalSatoshiIn > btcutil.MaxSatoshi {
-		// str := fmt.Sprintf("total value of all transaction "+
-		// 	"inputs is %v which is higher than max "+
-		// 	"allowed value of %v", totalSatoshiIn,
-		// 	btcutil.MaxSatoshi)
-		// return 0, ruleError(ErrBadTxOutValue, str)
-		// }
+		lastSatoshiIn := totalSatoshiIn
+		totalSatoshiIn += originTxSatoshi
+		if totalSatoshiIn < lastSatoshiIn ||
+			totalSatoshiIn > math.MaxUint64 {
+			str := fmt.Sprintf("total value of all transaction "+
+				"inputs is %v which is higher than max "+
+				"allowed value", totalSatoshiIn)
+			return 0, errors.New(str)
+		}
 	}
 
 	// Calculate the total output amount for this transaction.  It is safe
@@ -213,14 +114,17 @@ func CheckTransactionInputs(tx *Transaction, txHeight uint64, utxoView *UtxoView
 	var totalSatoshiOut uint64
 	for _, txOut := range tx.inner.txOut() {
 		totalSatoshiOut += txOut.Value
+		if _, err := common.BytesToAddress(txOut.Address, utxoView.Location).InternalAddress(); err != nil {
+			return 0, errors.New("invalid output address: " + err.Error())
+		}
 	}
 
 	// Ensure the transaction does not spend more than its inputs.
 	if totalSatoshiIn < totalSatoshiOut {
-		// str := fmt.Sprintf("total value of all transaction inputs for "+
-		// 	"transaction %v is %v which is less than the amount "+
-		// 	"spent of %v", tx.Hash(), totalSatoshiIn, totalSatoshiOut)
-		// return 0, ruleError(ErrSpendTooHigh, str)
+		str := fmt.Sprintf("total value of all transaction inputs for "+
+			"transaction %v is %v which is less than the amount "+
+			"spent of %v", tx.Hash(), totalSatoshiIn, totalSatoshiOut)
+		return 0, errors.New(str)
 	}
 
 	// NOTE: bitcoind checks if the transaction fees are < 0 here, but that
