@@ -34,7 +34,7 @@ type WireUtxoTx struct {
 
 type UtxoTxWithMinerFee struct {
 	Tx       *Transaction
-	Fee      uint64
+	Fee      *big.Int
 	FeePerKB uint64
 >>>>>>> c0b270e2 (Added schnorr and mu sig)
 }

@@ -38,9 +38,9 @@ type UtxoEntry struct {
 	// specifically crafted to result in minimal padding.  There will be a
 	// lot of these in memory, so a few extra bytes of padding adds up.
 
-	Amount      uint64
-	Address     []byte // The address of the output holder.
-	BlockHeight uint64 // Height of block containing tx.
+	Denomination uint8
+	Address      []byte // The address of the output holder.
+	BlockHeight  uint64 // Height of block containing tx.
 
 	// packedFlags contains additional info about output such as whether it
 	// is a coinbase, whether it is spent, and whether it has been modified
@@ -86,10 +86,10 @@ func (entry *UtxoEntry) Clone() *UtxoEntry {
 	}
 
 	return &UtxoEntry{
-		Amount:      entry.Amount,
-		Address:     entry.Address,
-		BlockHeight: entry.BlockHeight,
-		PackedFlags: entry.PackedFlags,
+		Denomination: entry.Denomination,
+		Address:      entry.Address,
+		BlockHeight:  entry.BlockHeight,
+		PackedFlags:  entry.PackedFlags,
 	}
 }
 
@@ -102,10 +102,10 @@ func NewUtxoEntry(
 	}
 
 	return &UtxoEntry{
-		Amount:      txOut.Value,
-		Address:     txOut.Address,
-		BlockHeight: blockHeight,
-		PackedFlags: cbFlag,
+		Denomination: txOut.Denomination,
+		Address:      txOut.Address,
+		BlockHeight:  blockHeight,
+		PackedFlags:  cbFlag,
 	}
 }
 
@@ -158,8 +158,8 @@ func (view *UtxoViewpoint) FetchPrevOutput(op OutPoint) *TxOut {
 	}
 
 	return &TxOut{
-		Value:   prevOut.Amount,
-		Address: prevOut.Address,
+		Denomination: prevOut.Denomination,
+		Address:      prevOut.Address,
 	}
 }
 
@@ -178,7 +178,7 @@ func (view *UtxoViewpoint) addTxOut(outpoint OutPoint, txOut *TxOut, isCoinBase 
 		view.Entries[outpoint] = entry
 	}
 
-	entry.Amount = txOut.Value
+	entry.Denomination = txOut.Denomination
 	entry.Address = txOut.Address
 	entry.BlockHeight = blockHeight
 	entry.PackedFlags = TfModified
@@ -197,7 +197,7 @@ func (view *UtxoViewpoint) AddTxOuts(tx *Transaction, block *Block) {
 	isCoinBase := IsCoinBaseTx(tx)
 	var prevOut OutPoint
 	if isCoinBase {
-		prevOut = OutPoint{Hash: block.ParentHash(view.Location.Context())}
+		prevOut = OutPoint{Hash: block.Hash()}
 	} else {
 		prevOut = OutPoint{Hash: tx.Hash()}
 	}
@@ -248,10 +248,10 @@ func (view *UtxoViewpoint) ConnectTransaction(tx *Transaction, block *Block, stx
 		if stxos != nil {
 			// Populate the stxo details using the utxo entry.
 			var stxo = SpentTxOut{
-				Amount:     entry.Amount,
-				Address:    entry.Address,
-				Height:     entry.BlockHeight,
-				IsCoinBase: entry.IsCoinBase(),
+				Denomination: entry.Denomination,
+				Address:      entry.Address,
+				Height:       entry.BlockHeight,
+				IsCoinBase:   entry.IsCoinBase(),
 			}
 			*stxos = append(*stxos, stxo)
 		}
@@ -317,9 +317,6 @@ func (view UtxoViewpoint) VerifyTxSignature(tx *Transaction, signer Signer) erro
 	fmt.Println("sig", common.Bytes2Hex(tx.UtxoSignature().Serialize()))
 	txDigestHash := signer.Hash(tx)
 
-	fmt.Println("UTXO VIEW")
-	fmt.Println("TX Digest Hash", common.Bytes2Hex(txDigestHash[:]))
-	fmt.Println("Pubkey", common.Bytes2Hex(finalKey.SerializeUncompressed()))
 	if !tx.UtxoSignature().Verify(txDigestHash[:], finalKey) {
 		return errors.New("invalid signature")
 	}
