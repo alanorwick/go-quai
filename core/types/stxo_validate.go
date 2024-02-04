@@ -25,7 +25,7 @@ type SpentTxOut struct {
 func CountSpentOutputs(block *Block) int {
 	// Exclude the coinbase transaction since it can't spend anything.
 	var numSpent int
-	for _, tx := range block.UTXOs()[1:] {
+	for _, tx := range block.UTXOs()[1:] { // need to make sure this is correct
 		numSpent += len(tx.TxIn())
 	}
 
