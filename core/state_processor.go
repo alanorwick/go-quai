@@ -791,3 +791,12 @@ func prepareApplyETX(statedb *state.StateDB, tx *types.Transaction) *big.Int {
 	statedb.SetBalance(common.ZeroInternal, total)           // Use zero address at temp placeholder and set it to gas fee plus value
 	return prevZeroBal
 }
+
+func (p *StateProcessor) GetUTXOsByAddress(address common.Address) ([]*types.UtxoEntry, error) {
+	utxos, ok := p.hc.addressUtxoCache.Get(address.Hash())
+	if !ok {
+		return nil, fmt.Errorf("address %s not found in cache", address.Hex())
+	}
+
+	return utxos.([]*types.UtxoEntry), nil
+}

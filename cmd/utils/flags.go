@@ -512,6 +512,12 @@ var (
 		Usage: "Input TOML string or path to TOML file" + generateEnvDoc(c_NodeFlagPrefix+"coinbases"),
 	}
 
+	IndexAddressUtxos = Flag{
+		Name:  c_NodeFlagPrefix + "index-address-utxos",
+		Value: true,
+		Usage: "Index address utxos" + generateEnvDoc(c_NodeFlagPrefix+"index-address-utxos"),
+	}
+
 	EnvironmentFlag = Flag{
 		Name:  c_NodeFlagPrefix + "environment",
 		Value: params.LocalName,
@@ -1305,6 +1311,9 @@ func SetQuaiConfig(stack *node.Node, cfg *quaiconfig.Config, nodeLocation common
 	if viper.IsSet(VMEnableDebugFlag.Name) {
 		// TODO(fjl): force-enable this in --dev mode
 		cfg.EnablePreimageRecording = viper.GetBool(VMEnableDebugFlag.Name)
+	}
+	if viper.IsSet(IndexAddressUtxos.Name) {
+		cfg.IndexAddressUtxos = viper.GetBool(IndexAddressUtxos.Name)
 	}
 
 	if viper.IsSet(RPCGlobalGasCapFlag.Name) {

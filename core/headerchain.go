@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -31,6 +32,7 @@ import (
 const (
 	headerCacheLimit      = 512
 	numberCacheLimit      = 2048
+	addressUtxoCacheLimit = 20480
 	c_subRollupCacheSize  = 50
 	primeHorizonThreshold = 20
 )
@@ -59,6 +61,7 @@ type HeaderChain struct {
 	currentStateHeader atomic.Value // Current head of the header chain (may be different than currentHeader)
 	headerCache        *lru.Cache   // Cache for the most recent block headers
 	numberCache        *lru.Cache   // Cache for the most recent block numbers
+	addressUtxoCache   *lru.Cache   // Cache for the most recent block numbers
 
 	fetchPEtxRollup getPendingEtxsRollup
 	fetchPEtx       getPendingEtxs
@@ -77,25 +80,31 @@ type HeaderChain struct {
 	slicesRunning []common.Location
 
 	logger *log.Logger
+
+	indexerConfig IndexerConfig
 }
 
 // NewHeaderChain creates a new HeaderChain structure. ProcInterrupt points
 // to the parent's interrupt semaphore.
-func NewHeaderChain(db ethdb.Database, engine consensus.Engine, pEtxsRollupFetcher getPendingEtxsRollup, pEtxsFetcher getPendingEtxs, chainConfig *params.ChainConfig, cacheConfig *CacheConfig, txLookupLimit *uint64, vmConfig vm.Config, slicesRunning []common.Location, logger *log.Logger) (*HeaderChain, error) {
+func NewHeaderChain(db ethdb.Database, engine consensus.Engine, pEtxsRollupFetcher getPendingEtxsRollup, pEtxsFetcher getPendingEtxs, chainConfig *params.ChainConfig, cacheConfig *CacheConfig, txLookupLimit *uint64, indexerConfig IndexerConfig, vmConfig vm.Config, slicesRunning []common.Location, logger *log.Logger) (*HeaderChain, error) {
 	headerCache, _ := lru.New(headerCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
+	addressUtxoCache, _ := lru.New(addressUtxoCacheLimit)
+
 	nodeCtx := chainConfig.Location.Context()
 
 	hc := &HeaderChain{
-		config:          chainConfig,
-		headerDb:        db,
-		headerCache:     headerCache,
-		numberCache:     numberCache,
-		engine:          engine,
-		slicesRunning:   slicesRunning,
-		fetchPEtxRollup: pEtxsRollupFetcher,
-		fetchPEtx:       pEtxsFetcher,
-		logger:          logger,
+		config:           chainConfig,
+		headerDb:         db,
+		headerCache:      headerCache,
+		numberCache:      numberCache,
+		engine:           engine,
+		slicesRunning:    slicesRunning,
+		fetchPEtxRollup:  pEtxsRollupFetcher,
+		fetchPEtx:        pEtxsFetcher,
+		logger:           logger,
+		indexerConfig:    indexerConfig,
+		addressUtxoCache: addressUtxoCache,
 	}
 
 	pendingEtxsRollup, _ := lru.New(c_maxPendingEtxsRollup)
@@ -135,6 +144,9 @@ func NewHeaderChain(db ethdb.Database, engine consensus.Engine, pEtxsRollupFetch
 	// Initialize the heads slice
 	heads := make([]*types.Header, 0)
 	hc.heads = heads
+
+	// Initialize the UTXO cache
+	hc.InitializeAddressUtxoCache()
 
 	return hc, nil
 }
@@ -1369,11 +1381,47 @@ func (hc *HeaderChain) WriteUtxoViewpoint(view *types.UtxoViewpoint) error {
 		// Remove the utxo entry if it is spent.
 		if entry.IsSpent() {
 			rawdb.DeleteUtxo(hc.bc.db, outpoint.Hash, outpoint.Index)
+
+			if hc.indexerConfig.IndexAddressUtxos {
+				entryAddress := common.BytesToAddress(entry.Address, hc.NodeLocation())
+				cacheEntry, ok := hc.addressUtxoCache.Get(entryAddress)
+				if !ok {
+					return fmt.Errorf("address utxo not found")
+				}
+
+				addressUtxos := cacheEntry.([]*types.UtxoEntry)
+
+				// Iterate over addressUtxos and find the outpointHash and outpointIndex entry, then remove it.
+				for i, utxo := range addressUtxos {
+					// TODO: Need to determine if this is adequate matching to remove upon spending
+					// Entry will show as spent so need to determine how to check packed flags equivalence?
+					if utxo.Denomination == entry.Denomination &&
+						bytes.Equal(utxo.Address, entry.Address) && // Use bytes.Equal for byte slice comparison
+						utxo.BlockHeight == entry.BlockHeight {
+						// Remove the utxo from the slice by filtering it out.
+						addressUtxos = append(addressUtxos[:i], addressUtxos[i+1:]...)
+						break
+					}
+				}
+
+				hc.addressUtxoCache.Add(entryAddress, addressUtxos)
+			}
+
 			continue
 		}
 
-		fmt.Println("write utxo", outpoint.Hash.Hex(), outpoint.Index)
 		rawdb.WriteUtxo(hc.bc.db, outpoint.Hash, outpoint.Index, entry)
+		if hc.indexerConfig.IndexAddressUtxos {
+			entryAddress := common.BytesToAddress(entry.Address, hc.NodeLocation())
+			cacheEntry, ok := hc.addressUtxoCache.Get(entryAddress)
+			if !ok {
+				return fmt.Errorf("address utxo not found")
+			}
+
+			addressUtxos := cacheEntry.([]*types.UtxoEntry)
+			addressUtxos = append(addressUtxos, entry)
+			hc.addressUtxoCache.Add(entryAddress, addressUtxos)
+		}
 	}
 
 	return nil
@@ -1589,5 +1637,35 @@ func (hc *HeaderChain) disconnectTransactions(view *types.UtxoViewpoint, block *
 	// Update the best hash for view to the previous block since all of the
 	// transactions for the current block have been disconnected.
 	view.SetBestHash(block.Header().ParentHash(hc.NodeCtx()))
+	return nil
+}
+
+func (hc *HeaderChain) InitializeAddressUtxoCache() error {
+
+	start := time.Now()
+	db := hc.bc.db
+	prefix := []byte("ut")
+
+	it := db.NewIterator(prefix, nil)
+	defer it.Release()
+
+	for it.Next() {
+		data := it.Value()
+		utxo := new(types.UtxoEntry)
+		if err := rlp.Decode(bytes.NewReader(data), utxo); err != nil {
+			return nil
+		}
+		address := common.BytesToAddress(utxo.Address, hc.NodeLocation())
+		cacheEntry, _ := hc.addressUtxoCache.Get(address.Hash())
+		if cacheEntry == nil {
+			cacheEntry = make([]*types.UtxoEntry, 0)
+		}
+		addressUtxos := cacheEntry.([]*types.UtxoEntry)
+		addressUtxos = append(addressUtxos, utxo)
+		hc.addressUtxoCache.Add(address.Hash(), addressUtxos)
+	}
+
+	hc.logger.Info("Finished initializing address utxo cache", "duration", time.Since(start))
+	fmt.Println("Finished initializing address utxo cache", "duration", time.Since(start))
 	return nil
 }
