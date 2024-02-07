@@ -10,17 +10,8 @@ import (
 
 type UtxoTx struct {
 	ChainID *big.Int // replay protection
-<<<<<<< HEAD
-<<<<<<< HEAD
-	TxIn    []*TxIn
-	TxOut   []*TxOut
-=======
-	TxIn    []TxIn
-	TxOut   []TxOut
-=======
 	TxIn    TxIns
 	TxOut   TxOuts
->>>>>>> 6768448f (s)
 
 	Signature *schnorr.Signature
 }
@@ -36,7 +27,6 @@ type UtxoTxWithMinerFee struct {
 	Tx       *Transaction
 	Fee      *big.Int
 	FeePerKB uint64
->>>>>>> c0b270e2 (Added schnorr and mu sig)
 }
 
 // copy creates a deep copy of the transaction data and initializes all fields.
@@ -47,10 +37,6 @@ func (tx *UtxoTx) copy() TxData {
 	if tx.ChainID != nil {
 		cpy.ChainID.Set(tx.ChainID)
 	}
-<<<<<<< HEAD
-	cpy.TxIn = make([]*TxIn, len(tx.TxIn))
-	cpy.TxOut = make([]*TxOut, len(tx.TxOut))
-=======
 
 	cpy.TxIn = make([]TxIn, len(tx.TxIn))
 	cpy.TxOut = make([]TxOut, len(tx.TxOut))
@@ -100,7 +86,6 @@ func (tx *WireUtxoTx) copyFromWire() *UtxoTx {
 	} else {
 		cpy.Signature = new(schnorr.Signature)
 	}
->>>>>>> c0b270e2 (Added schnorr and mu sig)
 	copy(cpy.TxIn, tx.TxIn)
 	copy(cpy.TxOut, tx.TxOut)
 	return cpy
