@@ -15,7 +15,7 @@ import (
 //
 // This function only differs from IsCoinBase in that it works with a raw wire
 // transaction as opposed to a higher level util transaction.
-func IsCoinBaseTx(msgTx *Transaction) bool {
+func IsCoinBaseTx(msgTx *Transaction) bool { // remove this function
 	// A coin base must only have one transaction input.
 	if len(msgTx.inner.txIn()) != 1 {
 		return false

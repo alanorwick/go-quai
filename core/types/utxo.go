@@ -1,6 +1,10 @@
 package types
 
 import (
+	"errors"
+	"fmt"
+	"math"
+
 	"github.com/dominant-strategies/go-quai/common"
 )
 
@@ -17,12 +21,14 @@ const (
 	// outpoint can be.
 	MaxPrevOutIndex uint32 = 0xffffffff
 
-	// defaultTxInOutAlloc is the default size used for the backing array for
-	// transaction inputs and outputs.  The array will dynamically grow as needed,
-	// but this figure is intended to provide enough space for the number of
-	// inputs and outputs in a typical transaction without needing to grow the
-	// backing array multiple times.
-	defaultTxInOutAlloc = 15
+	// SatoshiPerBitcent is the number of satoshi in one bitcoin cent.
+	SatoshiPerBitcent = 1e6
+
+	// SatoshiPerBitcoin is the number of satoshi in one bitcoin (1 BTC).
+	SatoshiPerBitcoin = 1e8
+
+	// MaxSatoshi is the maximum transaction amount allowed in satoshi.
+	MaxSatoshi = 21e6 * SatoshiPerBitcoin
 )
 
 // TxIn defines a Qi transaction input

@@ -25,14 +25,17 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/dominant-strategies/go-quai/common"
 	"github.com/dominant-strategies/go-quai/common/math"
+
 	"github.com/dominant-strategies/go-quai/crypto"
 	"github.com/dominant-strategies/go-quai/rlp"
 )
 
 var (
 	ErrInvalidSig         = errors.New("invalid transaction v, r, s values")
+	ErrInvalidSchnorrSig  = errors.New("invalid transaction scnhorr signature")
 	ErrExpectedProtection = errors.New("transaction signature is not protected")
 	ErrTxTypeNotSupported = errors.New("transaction type not supported")
 	ErrGasFeeCapTooLow    = errors.New("fee cap less than base fee")
@@ -95,11 +98,15 @@ type TxData interface {
 	etxGasTip() *big.Int
 	etxData() []byte
 	etxAccessList() AccessList
-	txIn() []*TxIn
-	txOut() []*TxOut
+	txIn() []TxIn
+	txOut() []TxOut
+
 	// do we need a tx version?
 	rawSignatureValues() (v, r, s *big.Int)
 	setSignatureValues(chainID, v, r, s *big.Int)
+
+	// Schnorr segregated sigs
+	utxoSignature() *schnorr.Signature
 }
 
 // ProtoEncode serializes tx into the Quai Proto Transaction format
@@ -304,6 +311,14 @@ func (tx *Transaction) EncodeRLP(w io.Writer) error {
 // encodeTyped writes the canonical encoding of a typed transaction to w.
 func (tx *Transaction) encodeTyped(w *bytes.Buffer) error {
 	w.WriteByte(tx.Type())
+	if tx.Type() == UtxoTxType {
+		// custom encode for schnorr signature
+		if utxoTx, ok := tx.inner.(*UtxoTx); ok {
+			return rlp.Encode(w, utxoTx.copyToWire())
+		} else {
+			return errors.New("failed to encode utxo tx: improper type")
+		}
+	}
 	return rlp.Encode(w, tx.inner)
 }
 
@@ -364,9 +379,10 @@ func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
 		err := rlp.DecodeBytes(b[1:], &inner)
 		return &inner, err
 	case UtxoTxType:
-		var inner UtxoTx
-		err := rlp.DecodeBytes(b[1:], &inner)
-		return &inner, err
+		var wire WireUtxoTx
+		err := rlp.DecodeBytes(b[1:], &wire)
+		inner := wire.copyFromWire()
+		return inner, err
 	default:
 		return nil, ErrTxTypeNotSupported
 	}
@@ -449,9 +465,11 @@ func (tx *Transaction) Nonce() uint64 { return tx.inner.nonce() }
 
 func (tx *Transaction) ETXSender() common.Address { return tx.inner.(*ExternalTx).Sender }
 
-func (tx *Transaction) TxOut() []*TxOut { return tx.inner.txOut() }
+func (tx *Transaction) TxOut() []TxOut { return tx.inner.txOut() }
 
-func (tx *Transaction) TxIn() []*TxIn { return tx.inner.txIn() }
+func (tx *Transaction) TxIn() []TxIn { return tx.inner.txIn() }
+
+func (tx *Transaction) UtxoSignature() *schnorr.Signature { return tx.inner.utxoSignature() }
 
 func (tx *Transaction) IsInternalToExternalTx() (inner *InternalToExternalTx, ok bool) {
 	inner, ok = tx.inner.(*InternalToExternalTx)
@@ -737,7 +755,13 @@ type TxWithMinerFee struct {
 // NewTxWithMinerFee creates a wrapped transaction, calculating the effective
 // miner gasTipCap if a base fee is provided.
 // Returns error in case of a negative effective miner gasTipCap.
-func NewTxWithMinerFee(tx *Transaction, baseFee *big.Int) (*TxWithMinerFee, error) {
+func NewTxWithMinerFee(tx *Transaction, baseFee *big.Int, utxoTxFee uint64) (*TxWithMinerFee, error) {
+	if tx.Type() == UtxoTxType {
+		return &TxWithMinerFee{
+			tx:       tx,
+			minerFee: new(big.Int).SetUint64(utxoTxFee),
+		}, nil
+	}
 	minerFee, err := tx.EffectiveGasTip(baseFee)
 	if err != nil {
 		return nil, err
