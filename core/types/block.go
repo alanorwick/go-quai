@@ -1038,6 +1038,17 @@ func (b *Block) SubManifest() BlockManifest { return b.subManifest }
 
 func (b *Block) Header() *Header { return b.header }
 
+func (b *Block) UTXOs() []*Transaction {
+	// TODO: cache the UTXO loop
+	utxos := make([]*Transaction, 0)
+	for _, t := range b.Transactions() {
+		if t.Type() == UtxoTxType {
+			utxos = append(utxos, t)
+		}
+	}
+	return utxos
+}
+
 // Body returns the non-header content of the block.
 func (b *Block) Body() *Body {
 	return &Body{b.transactions, b.uncles, b.extTransactions, b.subManifest}
