@@ -180,6 +180,7 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 	for i, etx := range body.ExtTransactions {
 		etxs[i] = etx.tx
 	}
+
 	// Fill the sender cache of subordinate block hashes in the block manifest.
 	var manifest types.BlockManifest
 	copy(manifest, body.SubManifest)

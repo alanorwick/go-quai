@@ -86,6 +86,7 @@ type Header struct {
 	uncleHash     common.Hash     `json:"sha3Uncles"           gencodec:"required"`
 	coinbase      common.Address  `json:"miner"                gencodec:"required"`
 	root          common.Hash     `json:"stateRoot"            gencodec:"required"`
+	utxoHash      common.Hash     `json:"utxoHash"			   gencodex:"required"`
 	txHash        common.Hash     `json:"transactionsRoot"     gencodec:"required"`
 	etxHash       common.Hash     `json:"extTransactionsRoot"  gencodec:"required"`
 	etxRollupHash common.Hash     `json:"extRollupRoot"        gencodec:"required"`
@@ -131,6 +132,7 @@ type extheader struct {
 	UncleHash     common.Hash
 	Coinbase      common.Address
 	Root          common.Hash
+	UtxoHash      common.Hash
 	TxHash        common.Hash
 	EtxHash       common.Hash
 	EtxRollupHash common.Hash
@@ -161,6 +163,7 @@ func EmptyHeader() *Header {
 	h.difficulty = big.NewInt(0)
 	h.root = EmptyRootHash
 	h.mixHash = EmptyRootHash
+	h.utxoHash = EmptyRootHash
 	h.txHash = EmptyRootHash
 	h.etxHash = EmptyRootHash
 	h.etxRollupHash = EmptyRootHash
@@ -186,6 +189,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.uncleHash = eh.UncleHash
 	h.coinbase = eh.Coinbase
 	h.root = eh.Root
+	h.utxoHash = eh.UtxoHash
 	h.txHash = eh.TxHash
 	h.etxHash = eh.EtxHash
 	h.etxRollupHash = eh.EtxRollupHash
@@ -214,6 +218,7 @@ func (h *Header) EncodeRLP(w io.Writer) error {
 		UncleHash:     h.uncleHash,
 		Coinbase:      h.coinbase,
 		Root:          h.root,
+		UtxoHash:      h.utxoHash,
 		TxHash:        h.txHash,
 		EtxHash:       h.etxHash,
 		EtxRollupHash: h.etxRollupHash,
@@ -404,6 +409,7 @@ func (h *Header) RPCMarshalHeader() map[string]interface{} {
 		"extraData":           hexutil.Bytes(h.Extra()),
 		"size":                hexutil.Uint64(h.Size()),
 		"timestamp":           hexutil.Uint64(h.Time()),
+		"utxoHash":            h.UtxoHash(),
 		"transactionsRoot":    h.TxHash(),
 		"receiptsRoot":        h.ReceiptHash(),
 		"extTransactionsRoot": h.EtxHash(),
@@ -446,6 +452,9 @@ func (h *Header) Coinbase() common.Address {
 }
 func (h *Header) Root() common.Hash {
 	return h.root
+}
+func (h *Header) UtxoHash() common.Hash {
+	return h.utxoHash
 }
 func (h *Header) TxHash() common.Hash {
 	return h.txHash
@@ -1037,6 +1046,17 @@ func (b *Block) ExtTransaction(hash common.Hash) *Transaction {
 func (b *Block) SubManifest() BlockManifest { return b.subManifest }
 
 func (b *Block) Header() *Header { return b.header }
+
+func (b *Block) UTXOs() []*Transaction {
+	// TODO: cache the UTXO loop
+	utxos := make([]*Transaction, 0)
+	for _, t := range b.Transactions() {
+		if t.Type() == UtxoTxType {
+			utxos = append(utxos, t)
+		}
+	}
+	return utxos
+}
 
 // Body returns the non-header content of the block.
 func (b *Block) Body() *Body {
