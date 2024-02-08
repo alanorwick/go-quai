@@ -191,11 +191,16 @@ func (view *UtxoViewpoint) addTxOut(outpoint OutPoint, txOut *TxOut, isCoinBase 
 // unspendable to the view.  When the view already has entries for any of the
 // outputs, they are simply marked unspent.  All fields will be updated for
 // existing entries since it's possible it has changed during a reorg.
-func (view *UtxoViewpoint) AddTxOuts(tx *Transaction, blockHeight uint64) {
+func (view *UtxoViewpoint) AddTxOuts(tx *Transaction, block *Block) {
 	// Loop all of the transaction outputs and add those which are not
 	// provably unspendable.
 	isCoinBase := IsCoinBaseTx(tx)
-	prevOut := OutPoint{Hash: tx.Hash()}
+	var prevOut OutPoint
+	if isCoinBase {
+		prevOut = OutPoint{Hash: block.ParentHash(view.Location.Context())}
+	} else {
+		prevOut = OutPoint{Hash: tx.Hash()}
+	}
 	for txOutIdx, txOut := range tx.inner.txOut() {
 		// Update existing entries.  All fields are updated because it's
 		// possible (although extremely unlikely) that the existing
@@ -203,14 +208,15 @@ func (view *UtxoViewpoint) AddTxOuts(tx *Transaction, blockHeight uint64) {
 		// same hash.  This is allowed so long as the previous
 		// transaction is fully spent.
 		prevOut.Index = uint32(txOutIdx)
-		view.addTxOut(prevOut, txOut, isCoinBase, blockHeight)
+		view.addTxOut(prevOut, &txOut, isCoinBase, block.NumberU64(view.Location.Context()))
 	}
 }
 
 // NewUtxoViewpoint returns a new empty unspent transaction output view.
-func NewUtxoViewpoint() *UtxoViewpoint {
+func NewUtxoViewpoint(Location common.Location) *UtxoViewpoint {
 	return &UtxoViewpoint{
-		Entries: make(map[OutPoint]*UtxoEntry),
+		Entries:  make(map[OutPoint]*UtxoEntry),
+		Location: Location,
 	}
 }
 
@@ -219,11 +225,11 @@ func NewUtxoViewpoint() *UtxoViewpoint {
 // spent.  In addition, when the 'stxos' argument is not nil, it will be updated
 // to append an entry for each spent txout.  An error will be returned if the
 // view does not contain the required utxos.
-func (view *UtxoViewpoint) ConnectTransaction(tx *Transaction, blockHeight uint64, stxos *[]SpentTxOut) error {
+func (view *UtxoViewpoint) ConnectTransaction(tx *Transaction, block *Block, stxos *[]SpentTxOut) error {
 	// Coinbase transactions don't have any inputs to spend.
 	if IsCoinBaseTx(tx) {
 		// Add the transaction's outputs as available utxos.
-		view.AddTxOuts(tx, blockHeight)
+		view.AddTxOuts(tx, block)
 		return nil
 	}
 
@@ -235,7 +241,7 @@ func (view *UtxoViewpoint) ConnectTransaction(tx *Transaction, blockHeight uint6
 		// never happen unless there is a bug is introduced in the code.
 		entry := view.Entries[txIn.PreviousOutPoint]
 		if entry == nil {
-			return nil
+			return errors.New("unable to find unspent output " + txIn.PreviousOutPoint.Hash.String())
 		}
 
 		// Only create the stxo details if requested.

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/dominant-strategies/go-quai/common"
@@ -49,8 +50,37 @@ func CheckTransactionInputs(tx *Transaction, txHeight uint64, utxoView *UtxoView
 	}
 
 	var totalSatoshiIn uint64
-	for _, txIn := range tx.inner.txIn() {
-		// Check transaction inputs
+	for index, txIn := range tx.inner.txIn() {
+		// Ensure the referenced input transaction is available.
+		utxo := utxoView.LookupEntry(txIn.PreviousOutPoint)
+		if utxo == nil || utxo.IsSpent() { // why comment this out?
+			str := fmt.Sprintf("output %v referenced from "+
+				"transaction %s:%d either does not exist or "+
+				"has already been spent", txIn.PreviousOutPoint,
+				tx.Hash(), index)
+			return 0, errors.New(str)
+		}
+
+		// Ensure the transaction amounts are in range.  Each of the
+		// output values of the input transactions must not be negative
+		// or more than the max allowed per transaction.  All amounts in
+		// a transaction are in a unit value known as a satoshi.  One
+		// bitcoin is a quantity of satoshi as defined by the
+		// SatoshiPerBitcoin constant.
+		originTxSatoshi := utxo.Amount
+
+		// The total of all outputs must not be more than the max
+		// allowed per transaction.  Also, we could potentially overflow
+		// the accumulator so check for overflow.
+		lastSatoshiIn := totalSatoshiIn
+		totalSatoshiIn += originTxSatoshi
+		if totalSatoshiIn < lastSatoshiIn ||
+			totalSatoshiIn > math.MaxUint64 {
+			str := fmt.Sprintf("total value of all transaction "+
+				"inputs is %v which is higher than max "+
+				"allowed value", totalSatoshiIn)
+			return 0, errors.New(str)
+		}
 	}
 
 	// Calculate the total output amount for this transaction.  It is safe
@@ -59,11 +89,17 @@ func CheckTransactionInputs(tx *Transaction, txHeight uint64, utxoView *UtxoView
 	var totalSatoshiOut uint64
 	for _, txOut := range tx.inner.txOut() {
 		totalSatoshiOut += txOut.Value
+		if _, err := common.BytesToAddress(txOut.Address, utxoView.Location).InternalAddress(); err != nil {
+			return 0, errors.New("invalid output address: " + err.Error())
+		}
 	}
 
 	// Ensure the transaction does not spend more than its inputs.
 	if totalSatoshiIn < totalSatoshiOut {
-		return 0, fmt.Errorf("transaction spends more than its inputs")
+		str := fmt.Sprintf("total value of all transaction inputs for "+
+			"transaction %v is %v which is less than the amount "+
+			"spent of %v", tx.Hash(), totalSatoshiIn, totalSatoshiOut)
+		return 0, errors.New(str)
 	}
 
 	// NOTE: bitcoind checks if the transaction fees are < 0 here, but that

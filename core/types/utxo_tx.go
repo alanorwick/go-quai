@@ -11,19 +11,24 @@ import (
 type UtxoTx struct {
 	ChainID *big.Int // replay protection
 <<<<<<< HEAD
+<<<<<<< HEAD
 	TxIn    []*TxIn
 	TxOut   []*TxOut
 =======
 	TxIn    []TxIn
 	TxOut   []TxOut
+=======
+	TxIn    TxIns
+	TxOut   TxOuts
+>>>>>>> 6768448f (s)
 
 	Signature *schnorr.Signature
 }
 
 type WireUtxoTx struct {
 	ChainID   *big.Int // replay protection
-	TxIn      []TxIn
-	TxOut     []TxOut
+	TxIn      TxIns
+	TxOut     TxOuts
 	Signature []byte
 }
 
@@ -119,8 +124,8 @@ func (tx *UtxoTx) etxGasPrice() *big.Int             { panic("internal TX does n
 func (tx *UtxoTx) etxGasTip() *big.Int               { panic("internal TX does not have etxGasTip") }
 func (tx *UtxoTx) etxData() []byte                   { panic("internal TX does not have etxData") }
 func (tx *UtxoTx) etxAccessList() AccessList         { panic("internal TX does not have etxAccessList") }
-func (tx *UtxoTx) txIn() []TxIn                      { return tx.TxIn }
-func (tx *UtxoTx) txOut() []TxOut                    { return tx.TxOut }
+func (tx *UtxoTx) txIn() TxIns                       { return tx.TxIn }
+func (tx *UtxoTx) txOut() TxOuts                     { return tx.TxOut }
 func (tx *UtxoTx) utxoSignature() *schnorr.Signature { return tx.Signature }
 
 func (tx *UtxoTx) rawSignatureValues() (v, r, s *big.Int) {

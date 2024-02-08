@@ -820,7 +820,7 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.AddressBytes]T
 	heads := make(TxByPriceAndTime, 0, len(txs))
 	for from, accTxs := range txs {
 		acc, _ := Sender(signer, accTxs[0])
-		wrapped, err := NewTxWithMinerFee(accTxs[0], baseFee)
+		wrapped, err := NewTxWithMinerFee(accTxs[0], baseFee, 0)
 		// Remove transaction if sender doesn't match from, or if wrapping fails.
 		if acc.Bytes20() != from || err != nil {
 			delete(txs, from)
@@ -853,7 +853,7 @@ func (t *TransactionsByPriceAndNonce) Peek() *Transaction {
 // Shift replaces the current best head with the next one from the same account.
 func (t *TransactionsByPriceAndNonce) Shift(acc common.AddressBytes, sort bool) {
 	if txs, ok := t.txs[acc]; ok && len(txs) > 0 {
-		if wrapped, err := NewTxWithMinerFee(txs[0], t.baseFee); err == nil {
+		if wrapped, err := NewTxWithMinerFee(txs[0], t.baseFee, 0); err == nil {
 			t.heads[0], t.txs[acc] = wrapped, txs[1:]
 			if sort {
 				heap.Fix(&t.heads, 0)
@@ -878,6 +878,15 @@ func (t *TransactionsByPriceAndNonce) PopNoSort() {
 	} else {
 		t.heads = make(TxByPriceAndTime, 0)
 	}
+}
+
+// Appends a new transaction to the heads
+func (t *TransactionsByPriceAndNonce) AppendNoSort(tx *UtxoTxWithMinerFee) {
+	wrapped, err := NewTxWithMinerFee(tx.Tx, t.baseFee, tx.Fee)
+	if err != nil {
+		return
+	}
+	t.heads = append(t.heads, wrapped)
 }
 
 // Pop removes the best transaction, *not* replacing it with the next one from

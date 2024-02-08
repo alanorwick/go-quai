@@ -380,13 +380,9 @@ func (hc *HeaderChain) SetCurrentHeader(head *types.Header) error {
 		}
 		rawdb.DeleteCanonicalHash(hc.headerDb, prevHeader.NumberU64(hc.NodeCtx()))
 		prevHeader = hc.GetHeader(prevHeader.ParentHash(hc.NodeCtx()), prevHeader.NumberU64(hc.NodeCtx())-1)
-<<<<<<< HEAD
-
-=======
 		if prevHeader == nil {
 			return errors.New("Could not find previously canonical header during reorg")
 		}
->>>>>>> c0b270e2 (Added schnorr and mu sig)
 		// genesis check to not delete the genesis block
 		if prevHeader.Hash() == hc.config.GenesisHash {
 			break
