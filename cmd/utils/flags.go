@@ -97,6 +97,7 @@ var NodeFlags = []Flag{
 	EnvironmentFlag,
 	QuaiStatsURLFlag,
 	SendFullStatsFlag,
+	IndexAddressUtxos,
 }
 
 var TXPoolFlags = []Flag{
@@ -1312,9 +1313,7 @@ func SetQuaiConfig(stack *node.Node, cfg *quaiconfig.Config, nodeLocation common
 		// TODO(fjl): force-enable this in --dev mode
 		cfg.EnablePreimageRecording = viper.GetBool(VMEnableDebugFlag.Name)
 	}
-	if viper.IsSet(IndexAddressUtxos.Name) {
-		cfg.IndexAddressUtxos = viper.GetBool(IndexAddressUtxos.Name)
-	}
+	cfg.IndexAddressUtxos = viper.GetBool(IndexAddressUtxos.Name)
 
 	if viper.IsSet(RPCGlobalGasCapFlag.Name) {
 		cfg.RPCGasCap = viper.GetUint64(RPCGlobalGasCapFlag.Name)

@@ -793,10 +793,6 @@ func prepareApplyETX(statedb *state.StateDB, tx *types.Transaction) *big.Int {
 }
 
 func (p *StateProcessor) GetUTXOsByAddress(address common.Address) ([]*types.UtxoEntry, error) {
-	utxos, ok := p.hc.addressUtxoCache.Get(address.Hash())
-	if !ok {
-		return nil, fmt.Errorf("address %s not found in cache", address.Hex())
-	}
-
-	return utxos.([]*types.UtxoEntry), nil
+	utxos := rawdb.ReadAddressUtxos(p.hc.bc.db, address)
+	return utxos, nil
 }

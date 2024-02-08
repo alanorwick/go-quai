@@ -203,7 +203,7 @@ func New(stack *node.Node, p2p NetworkingAPI, config *quaiconfig.Config, nodeCtx
 	)
 
 	var (
-		indexerConfig = core.IndexerConfig{
+		indexerConfig = &core.IndexerConfig{
 			IndexAddressUtxos: config.IndexAddressUtxos,
 		}
 	)
