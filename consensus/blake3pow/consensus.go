@@ -444,6 +444,8 @@ func (blake3pow *Blake3pow) Finalize(chain consensus.ChainHeaderReader, header *
 				state.SetState(internal, key, value)
 			}
 		}
+
+		core.AddGenesisUtxos(state, nodeLocation, blake3pow.logger)
 	}
 
 	header.SetRoot(state.IntermediateRoot(true))

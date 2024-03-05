@@ -480,6 +480,7 @@ func (progpow *Progpow) Finalize(chain consensus.ChainHeaderReader, header *type
 				state.SetState(internal, key, value)
 			}
 		}
+		core.AddGenesisUtxos(state, nodeLocation, progpow.logger)
 	}
 
 	header.SetRoot(state.IntermediateRoot(true))
