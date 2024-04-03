@@ -1135,7 +1135,7 @@ func (pool *TxPool) addUtxoTx(tx *types.Transaction) error {
 		etxPLimit = params.ETXPLimitMin
 	}
 	pool.mu.RLock() // need to readlock the whole pool because we are reading the current state
-	fee, _, err := ProcessQiTx(tx, pool.chain, false, pool.chain.CurrentBlock().Header(), pool.currentState, &gp, new(uint64), pool.signer, location, *pool.chainconfig.ChainID, &etxRLimit, &etxPLimit, nil)
+	fee, _, err := ProcessQiTx(tx, pool.chain, false, pool.chain.CurrentBlock().Header(), pool.currentState, &gp, new(uint64), pool.signer, location, *pool.chainconfig.ChainID, &etxRLimit, &etxPLimit)
 	if err != nil {
 		pool.mu.RUnlock()
 		pool.logger.WithFields(logrus.Fields{

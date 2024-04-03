@@ -127,14 +127,20 @@ func (s *PublicBlockChainQuaiAPI) BlockNumber() hexutil.Uint64 {
 func (s *PublicBlockChainQuaiAPI) GetBalance(ctx context.Context, address common.AddressBytes, blockNrOrHash rpc.BlockNumberOrHash) (*hexutil.Big, error) {
 	addr := common.Bytes20ToAddress(address, s.b.NodeLocation())
 	if addr.IsInQiLedgerScope() {
-		state, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+		state, _, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 		if state == nil || err != nil {
 			return nil, err
 		}
 
-		utxos, err := s.b.UTXOsByAddressAtState(ctx, state, header, addr)
-		if utxos == nil || err != nil {
-			return nil, err
+		utxos := []*types.UtxoEntry{}
+
+		outpointsForAddress := state.GetAddressOutpoints(addr.Bytes())
+		for _, outpoint := range outpointsForAddress {
+			utxo := state.GetUTXO(outpoint.TxHash, outpoint.Index)
+			if utxo == nil {
+				return nil, errors.New("utxo not found")
+			}
+			utxos = append(utxos, utxo)
 		}
 
 		if len(utxos) == 0 {
@@ -165,12 +171,16 @@ func (s *PublicBlockChainQuaiAPI) GetBalance(ctx context.Context, address common
 	}
 }
 
-func (s *PublicBlockChainQuaiAPI) GetOutpointsByAddressAtBlock(ctx context.Context, address common.Address, hash common.Hash) ([]*types.OutPoint, error) {
-	outpints, err := s.b.AddressOutpointsByHash(ctx, address, hash)
-	if err != nil {
+func (s *PublicBlockChainQuaiAPI) GetOutpointsByAddressAtBlock(ctx context.Context, address common.AddressBytes, blockNrOrHash rpc.BlockNumberOrHash) ([]*types.OutPoint, error) {
+	addr := common.Bytes20ToAddress(address, s.b.NodeLocation())
+
+	state, _, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if state == nil || err != nil {
 		return nil, err
 	}
-	return outpints, nil
+
+	outpointsForAddress := state.GetAddressOutpoints(addr.Bytes())
+	return outpointsForAddress, nil
 }
 
 // GetProof returns the Merkle-proof for a given account and optionally some storage keys.

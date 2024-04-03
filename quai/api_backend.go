@@ -216,18 +216,6 @@ func (b *QuaiAPIBackend) StateAndHeaderByNumberOrHash(ctx context.Context, block
 	return nil, nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
-func (b *QuaiAPIBackend) AddressOutpointsByHash(ctx context.Context, address common.Address, hash common.Hash) ([]*types.OutPoint, error) {
-	header, err := b.HeaderByHash(ctx, hash)
-	if err != nil {
-		return nil, errors.New("block is nil api backend")
-	}
-	return b.quai.core.GetOutpointsByAddress(address, header), nil
-}
-
-func (b *QuaiAPIBackend) UTXOsByAddressAtState(ctx context.Context, state *state.StateDB, header *types.Header, address common.Address) ([]*types.UtxoEntry, error) {
-	return b.quai.core.GetUTXOsByAddressAtState(state, header, address)
-}
-
 func (b *QuaiAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
 	nodeCtx := b.quai.core.NodeCtx()
 	if nodeCtx != common.ZONE_CTX {

@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"sort"
@@ -1178,27 +1177,6 @@ func (c *Core) StateAtTransaction(block *types.Block, txIndex int, reexec uint64
 
 func (c *Core) TrieNode(hash common.Hash) ([]byte, error) {
 	return c.sl.hc.bc.processor.TrieNode(hash)
-}
-
-func (c *Core) GetOutpointsByAddress(address common.Address, header *types.Header) []*types.OutPoint {
-	outpoints := rawdb.ReadAddressOutpoints(c.sl.hc.bc.db, header.Hash(), header.NumberU64(c.sl.hc.NodeCtx()), c.sl.hc.NodeLocation())
-	outpointsForAddress := outpoints[address.Hex()]
-	return outpointsForAddress
-}
-
-func (c *Core) GetUTXOsByAddressAtState(state *state.StateDB, header *types.Header, address common.Address) ([]*types.UtxoEntry, error) {
-	outpointsForAddress := c.GetOutpointsByAddress(address, header)
-	utxos := make([]*types.UtxoEntry, 0, len(outpointsForAddress))
-
-	for _, outpoint := range outpointsForAddress {
-		entry := state.GetUTXO(outpoint.TxHash, outpoint.Index)
-		if entry == nil {
-			return nil, fmt.Errorf("failed to get UTXO for address %s", address.Hex())
-		}
-		utxos = append(utxos, entry)
-	}
-
-	return utxos, nil
 }
 
 //----------------//

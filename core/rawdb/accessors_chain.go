@@ -1641,6 +1641,17 @@ func DeleteAddressUtxos(db ethdb.KeyValueWriter, hash common.Hash, number uint64
 	}
 }
 
+func ReadOutpointHash(db ethdb.Reader, hash common.Hash) common.Hash {
+	// Try to look up the data in leveldb.
+	data, _ := db.Get(outpointHashKey(hash))
+	if len(data) == 0 {
+		return common.Hash{}
+	}
+	outpointHash := common.Hash{}
+	copy(outpointHash[:], data)
+	return outpointHash
+}
+
 func WriteGenesisHashes(db ethdb.KeyValueWriter, hashes common.Hashes) {
 	protoHashes := hashes.ProtoEncode()
 	data, err := proto.Marshal(protoHashes)

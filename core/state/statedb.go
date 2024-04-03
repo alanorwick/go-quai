@@ -90,10 +90,12 @@ func registerMetrics() {
 type StateDB struct {
 	db           Database
 	utxoDb       Database
+	outpointDb   Database
 	prefetcher   *triePrefetcher
 	originalRoot common.Hash // The pre-state root, before any changes were made
 	trie         Trie
 	utxoTrie     Trie
+	outpointTrie Trie
 	hasher       crypto.KeccakState
 
 	nodeLocation common.Location
@@ -150,7 +152,7 @@ type StateDB struct {
 }
 
 // New creates a new state from a given trie.
-func New(root common.Hash, utxoRoot common.Hash, db Database, utxoDb Database, snaps *snapshot.Tree, nodeLocation common.Location) (*StateDB, error) {
+func New(root common.Hash, utxoRoot common.Hash, outpointRoot common.Hash, db Database, utxoDb Database, outpointDb Database, snaps *snapshot.Tree, nodeLocation common.Location) (*StateDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
 		return nil, err
@@ -162,6 +164,7 @@ func New(root common.Hash, utxoRoot common.Hash, db Database, utxoDb Database, s
 	sdb := &StateDB{
 		db:                  db,
 		utxoDb:              utxoDb,
+		outpointDb:          outpointDb,
 		trie:                tr,
 		utxoTrie:            utxoTr,
 		originalRoot:        root,
@@ -176,6 +179,17 @@ func New(root common.Hash, utxoRoot common.Hash, db Database, utxoDb Database, s
 		hasher:              crypto.NewKeccakState(),
 		nodeLocation:        nodeLocation,
 	}
+
+	// if we are running the outpoint trie, we need to initialize it
+	if true {
+		// lookup the root node
+		outpointTrie, err := outpointDb.OpenTrie(outpointRoot)
+		if err != nil {
+			return nil, err
+		}
+		sdb.outpointTrie = outpointTrie
+	}
+
 	if sdb.snaps != nil {
 		if sdb.snap = sdb.snaps.Snapshot(root); sdb.snap != nil {
 			sdb.snapDestructs = make(map[common.Hash]struct{})
@@ -572,6 +586,7 @@ func (s *StateDB) DeleteUTXO(txHash common.Hash, outputIndex uint16) {
 	if err := s.utxoTrie.TryDelete(utxoKey(txHash, outputIndex)); err != nil {
 		s.setError(fmt.Errorf("deleteUTXO (%x) error: %v", txHash, err))
 	}
+
 }
 
 // CreateUTXO explicitly creates a UTXO entry.
@@ -586,6 +601,17 @@ func (s *StateDB) CreateUTXO(txHash common.Hash, outputIndex uint16, utxo *types
 	if err := s.utxoTrie.TryUpdate(utxoKey(txHash, outputIndex), data); err != nil {
 		s.setError(fmt.Errorf("createUTXO (%x) error: %v", txHash, err))
 	}
+
+	// TODO make this optional
+	outpoints := s.GetAddressOutpoints(utxo.Address)
+	if outpoints == nil {
+		outpoints = make([]*types.OutPoint, 0)
+	}
+	outpoints = append(outpoints, &types.OutPoint{
+		TxHash: txHash,
+		Index:  outputIndex,
+	})
+	s.CreateAddressOutpoints(utxo.Address, outpoints)
 }
 
 func (s *StateDB) CommitUTXOs() (common.Hash, error) {
@@ -611,6 +637,58 @@ func (s *StateDB) GetUTXOProof(hash common.Hash, index uint16) ([][]byte, error)
 	var proof proofList
 	err := s.utxoTrie.Prove(utxoKey(hash, index), 0, &proof)
 	return proof, err
+}
+
+func (s *StateDB) GetAddressOutpoints(addr []byte) []*types.OutPoint {
+	if metrics_config.MetricsEnabled() {
+		defer func(start time.Time) { stateMetrics.WithLabelValues("GetUTXO").Add(float64(time.Since(start))) }(time.Now())
+	}
+	enc, err := s.outpointTrie.TryGet(addr)
+	if err != nil {
+		s.setError(fmt.Errorf("getUTXO (%x) error: %v", addr, err))
+		return nil
+	}
+	if len(enc) == 0 {
+		return nil
+	}
+	outpoints := []*types.OutPoint{}
+	if err := rlp.DecodeBytes(enc, outpoints); err != nil {
+		log.Global.WithFields(log.Fields{
+			"hash": addr,
+			"err":  err,
+		}).Error("Failed to decode UTXO entry")
+		return nil
+	}
+	return outpoints
+}
+
+func (s *StateDB) CreateAddressOutpoints(addr []byte, outpoints []*types.OutPoint) {
+	if metrics_config.MetricsEnabled() {
+		defer func(start time.Time) { stateMetrics.WithLabelValues("CreateOutpoint").Add(float64(time.Since(start))) }(time.Now())
+	}
+	data, err := rlp.EncodeToBytes(outpoints)
+	if err != nil {
+		panic(fmt.Errorf("can't encode outpoint entry at %x: %v", addr, err))
+	}
+	fmt.Println("outpoints", outpoints)
+	if err := s.outpointTrie.TryUpdate(addr, data); err != nil {
+		s.setError(fmt.Errorf("outpoint (%x) error: %v", addr, err))
+	}
+}
+
+func (s *StateDB) CommitOutpoints() (common.Hash, error) {
+	// Track the amount of time wasted on committing the utxos to the trie
+	if metrics_config.MetricsEnabled() {
+		defer func(start time.Time) { stateMetrics.WithLabelValues("CommitOutpoints").Add(float64(time.Since(start))) }(time.Now())
+	}
+	if s.outpointTrie == nil {
+		return common.Hash{}, errors.New("outpoint trie is not initialized")
+	}
+	root, err := s.outpointTrie.Commit(nil)
+	if err != nil {
+		s.setError(fmt.Errorf("CommitOutpoints error: %v", err))
+	}
+	return root, err
 }
 
 // getDeletedStateObject is similar to getStateObject, but instead of returning
@@ -775,8 +853,10 @@ func (s *StateDB) Copy() *StateDB {
 	state := &StateDB{
 		db:                  s.db,
 		trie:                s.db.CopyTrie(s.trie),
-		utxoTrie:            s.utxoDb.CopyTrie(s.utxoTrie),
 		utxoDb:              s.utxoDb,
+		utxoTrie:            s.utxoDb.CopyTrie(s.utxoTrie),
+		outpointDb:          s.outpointDb,
+		outpointTrie:        s.outpointDb.CopyTrie(s.outpointTrie),
 		stateObjects:        make(map[common.InternalAddress]*stateObject, len(s.journal.dirties)),
 		stateObjectsPending: make(map[common.InternalAddress]struct{}, len(s.stateObjectsPending)),
 		stateObjectsDirty:   make(map[common.InternalAddress]struct{}, len(s.journal.dirties)),

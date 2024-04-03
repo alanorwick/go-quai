@@ -242,14 +242,20 @@ func (s *PublicBlockChainAPI) BlockNumber() hexutil.Uint64 {
 func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.AddressBytes, blockNrOrHash rpc.BlockNumberOrHash) (*hexutil.Big, error) {
 	addr := common.Bytes20ToAddress(address, s.b.NodeLocation())
 	if addr.IsInQiLedgerScope() {
-		state, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+		state, _, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 		if state == nil || err != nil {
 			return nil, err
 		}
 
-		utxos, err := s.b.UTXOsByAddressAtState(ctx, state, header, addr)
-		if utxos == nil || err != nil {
-			return nil, err
+		outpointsForAddress := state.GetAddressOutpoints(addr.Bytes())
+		utxos := make([]*types.UtxoEntry, 0, len(outpointsForAddress))
+
+		for _, outpoint := range outpointsForAddress {
+			entry := state.GetUTXO(outpoint.TxHash, outpoint.Index)
+			if entry == nil {
+				return nil, fmt.Errorf("failed to get UTXO for address %s", address.Hex())
+			}
+			utxos = append(utxos, entry)
 		}
 
 		if len(utxos) == 0 {
@@ -280,12 +286,16 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	}
 }
 
-func (s *PublicBlockChainAPI) GetOutpointsByAddressAtBlock(ctx context.Context, address common.Address, hash common.Hash) ([]*types.OutPoint, error) {
-	outpints, err := s.b.AddressOutpointsByHash(ctx, address, hash)
-	if err != nil {
+func (s *PublicBlockChainAPI) GetOutpointsByAddressAtBlock(ctx context.Context, address common.AddressBytes, blockNrOrHash rpc.BlockNumberOrHash) ([]*types.OutPoint, error) {
+	addr := common.Bytes20ToAddress(address, s.b.NodeLocation())
+
+	state, _, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if state == nil || err != nil {
 		return nil, err
 	}
-	return outpints, nil
+
+	outpointsForAddress := state.GetAddressOutpoints(addr.Bytes())
+	return outpointsForAddress, nil
 }
 
 // Result structs for GetProof
