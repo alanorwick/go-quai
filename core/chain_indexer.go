@@ -211,6 +211,7 @@ func (c *ChainIndexer) eventLoop(currentHeader *types.Header, events chan ChainH
 					}
 				}
 			}
+
 			c.newHead(header.NumberU64(nodeCtx), false)
 
 			prevHeader, prevHash = header, header.Hash()

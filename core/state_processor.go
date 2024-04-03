@@ -233,10 +233,9 @@ func (p *StateProcessor) Process(block *types.Block, etxSet *types.EtxSet) (type
 		parentEvmRoot = types.EmptyRootHash
 		parentUtxoRoot = types.EmptyRootHash
 	}
-	prevOutpointHash := rawdb.ReadOutpointHash(p.hc.bc.db, block.ParentHash(nodeCtx))
 
 	// Initialize a statedb
-	statedb, err := state.New(parentEvmRoot, parentUtxoRoot, prevOutpointHash, p.stateCache, p.utxoCache, p.outpointCache, p.snaps, nodeLocation)
+	statedb, err := state.New(parentEvmRoot, parentUtxoRoot, p.stateCache, p.utxoCache, p.snaps, nodeLocation)
 	if err != nil {
 		return types.Receipts{}, []*types.Transaction{}, []*types.Log{}, nil, 0, err
 	}
@@ -805,7 +804,7 @@ func (p *StateProcessor) State() (*state.StateDB, error) {
 
 // StateAt returns a new mutable state based on a particular point in time.
 func (p *StateProcessor) StateAt(root common.Hash, utxoRoot common.Hash) (*state.StateDB, error) {
-	return state.New(root, utxoRoot, common.Hash{}, p.stateCache, p.utxoCache, p.outpointCache, p.snaps, p.hc.NodeLocation())
+	return state.New(root, utxoRoot, p.stateCache, p.utxoCache, p.snaps, p.hc.NodeLocation())
 }
 
 // StateCache returns the caching database underpinning the blockchain instance.
@@ -901,14 +900,13 @@ func (p *StateProcessor) ContractCodeWithPrefix(hash common.Hash) ([]byte, error
 //     storing trash persistently
 func (p *StateProcessor) StateAtBlock(block *types.Block, reexec uint64, base *state.StateDB, checkLive bool) (statedb *state.StateDB, err error) {
 	var (
-		current          *types.Header
-		database         state.Database
-		utxoDatabase     state.Database
-		outpointDatabase state.Database
-		report           = true
-		nodeLocation     = p.hc.NodeLocation()
-		nodeCtx          = p.hc.NodeCtx()
-		origin           = block.NumberU64(nodeCtx)
+		current      *types.Header
+		database     state.Database
+		utxoDatabase state.Database
+		report       = true
+		nodeLocation = p.hc.NodeLocation()
+		nodeCtx      = p.hc.NodeCtx()
+		origin       = block.NumberU64(nodeCtx)
 	)
 	// Check the live database first if we have the state fully available, use that.
 	if checkLive {
@@ -934,15 +932,11 @@ func (p *StateProcessor) StateAtBlock(block *types.Block, reexec uint64, base *s
 		// the internal junks created by tracing will be persisted into the disk.
 		utxoDatabase = state.NewDatabaseWithConfig(p.hc.headerDb, &trie.Config{Cache: 16})
 
-		outpointDatabase = state.NewDatabaseWithConfig(p.hc.headerDb, &trie.Config{Cache: 16})
-
-		prevOutpointHash := rawdb.ReadOutpointHash(p.hc.bc.db, block.ParentHash(nodeCtx))
-
 		// If we didn't check the dirty database, do check the clean one, otherwise
 		// we would rewind past a persisted block (specific corner case is chain
 		// tracing from the genesis).
 		if !checkLive {
-			statedb, err = state.New(current.EVMRoot(), current.UTXORoot(), prevOutpointHash, database, utxoDatabase, outpointDatabase, nil, nodeLocation)
+			statedb, err = state.New(current.EVMRoot(), current.UTXORoot(), database, utxoDatabase, nil, nodeLocation)
 			if err == nil {
 				return statedb, nil
 			}
@@ -959,7 +953,7 @@ func (p *StateProcessor) StateAtBlock(block *types.Block, reexec uint64, base *s
 			}
 			current = types.CopyHeader(parent)
 
-			statedb, err = state.New(current.EVMRoot(), current.UTXORoot(), prevOutpointHash, database, utxoDatabase, outpointDatabase, nil, nodeLocation)
+			statedb, err = state.New(current.EVMRoot(), current.UTXORoot(), database, utxoDatabase, nil, nodeLocation)
 			if err == nil {
 				break
 			}
@@ -1030,12 +1024,7 @@ func (p *StateProcessor) StateAtBlock(block *types.Block, reexec uint64, base *s
 			return nil, fmt.Errorf("stateAtBlock commit failed, number %d root %v: %w",
 				current.NumberU64(nodeCtx), current.EVMRoot().Hex(), err)
 		}
-		outpointHash, err := statedb.CommitOutpoints()
-		if err != nil {
-			return nil, fmt.Errorf("stateAtBlock commit failed, number %d root %v: %w",
-				current.NumberU64(nodeCtx), current.EVMRoot().Hex(), err)
-		}
-		statedb, err = state.New(root, utxoRoot, outpointHash, database, utxoDatabase, outpointDatabase, nil, nodeLocation)
+		statedb, err = state.New(root, utxoRoot, database, utxoDatabase, nil, nodeLocation)
 		if err != nil {
 			return nil, fmt.Errorf("state reset after block %d failed: %v", current.NumberU64(nodeCtx), err)
 		}

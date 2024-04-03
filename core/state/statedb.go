@@ -152,7 +152,7 @@ type StateDB struct {
 }
 
 // New creates a new state from a given trie.
-func New(root common.Hash, utxoRoot common.Hash, outpointRoot common.Hash, db Database, utxoDb Database, outpointDb Database, snaps *snapshot.Tree, nodeLocation common.Location) (*StateDB, error) {
+func New(root common.Hash, utxoRoot common.Hash, db Database, utxoDb Database, snaps *snapshot.Tree, nodeLocation common.Location) (*StateDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
 		return nil, err
@@ -164,7 +164,6 @@ func New(root common.Hash, utxoRoot common.Hash, outpointRoot common.Hash, db Da
 	sdb := &StateDB{
 		db:                  db,
 		utxoDb:              utxoDb,
-		outpointDb:          outpointDb,
 		trie:                tr,
 		utxoTrie:            utxoTr,
 		originalRoot:        root,
@@ -178,16 +177,6 @@ func New(root common.Hash, utxoRoot common.Hash, outpointRoot common.Hash, db Da
 		accessList:          newAccessList(),
 		hasher:              crypto.NewKeccakState(),
 		nodeLocation:        nodeLocation,
-	}
-
-	// if we are running the outpoint trie, we need to initialize it
-	if true {
-		// lookup the root node
-		outpointTrie, err := outpointDb.OpenTrie(outpointRoot)
-		if err != nil {
-			return nil, err
-		}
-		sdb.outpointTrie = outpointTrie
 	}
 
 	if sdb.snaps != nil {
@@ -601,17 +590,6 @@ func (s *StateDB) CreateUTXO(txHash common.Hash, outputIndex uint16, utxo *types
 	if err := s.utxoTrie.TryUpdate(utxoKey(txHash, outputIndex), data); err != nil {
 		s.setError(fmt.Errorf("createUTXO (%x) error: %v", txHash, err))
 	}
-
-	// TODO make this optional
-	outpoints := s.GetAddressOutpoints(utxo.Address)
-	if outpoints == nil {
-		outpoints = make([]*types.OutPoint, 0)
-	}
-	outpoints = append(outpoints, &types.OutPoint{
-		TxHash: txHash,
-		Index:  outputIndex,
-	})
-	s.CreateAddressOutpoints(utxo.Address, outpoints)
 }
 
 func (s *StateDB) CommitUTXOs() (common.Hash, error) {
