@@ -1655,6 +1655,249 @@ func (x *ProtoTxOut) GetAddress() []byte {
 	return nil
 }
 
+type ProtoAddressOutPoints struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	OutPoints []*ProtoOutPoint `protobuf:"bytes,1,rep,name=out_points,json=outPoints,proto3" json:"out_points,omitempty"`
+}
+
+func (x *ProtoAddressOutPoints) Reset() {
+	*x = ProtoAddressOutPoints{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_core_types_proto_block_proto_msgTypes[23]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ProtoAddressOutPoints) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProtoAddressOutPoints) ProtoMessage() {}
+
+func (x *ProtoAddressOutPoints) ProtoReflect() protoreflect.Message {
+	mi := &file_core_types_proto_block_proto_msgTypes[23]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProtoAddressOutPoints.ProtoReflect.Descriptor instead.
+func (*ProtoAddressOutPoints) Descriptor() ([]byte, []int) {
+	return file_core_types_proto_block_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ProtoAddressOutPoints) GetOutPoints() []*ProtoOutPoint {
+	if x != nil {
+		return x.OutPoints
+	}
+	return nil
+}
+
+type ProtoOutPointsMap struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Entries map[string]*ProtoAddressOutPoints `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (x *ProtoOutPointsMap) Reset() {
+	*x = ProtoOutPointsMap{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_core_types_proto_block_proto_msgTypes[24]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ProtoOutPointsMap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProtoOutPointsMap) ProtoMessage() {}
+
+func (x *ProtoOutPointsMap) ProtoReflect() protoreflect.Message {
+	mi := &file_core_types_proto_block_proto_msgTypes[24]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProtoOutPointsMap.ProtoReflect.Descriptor instead.
+func (*ProtoOutPointsMap) Descriptor() ([]byte, []int) {
+	return file_core_types_proto_block_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ProtoOutPointsMap) GetEntries() map[string]*ProtoAddressOutPoints {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+type ProtoUtxoEntry struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Address      []byte `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"` // Ethereum address
+	Denomination uint32 `protobuf:"varint,2,opt,name=denomination,proto3" json:"denomination,omitempty"`
+}
+
+func (x *ProtoUtxoEntry) Reset() {
+	*x = ProtoUtxoEntry{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_core_types_proto_block_proto_msgTypes[25]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ProtoUtxoEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProtoUtxoEntry) ProtoMessage() {}
+
+func (x *ProtoUtxoEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_core_types_proto_block_proto_msgTypes[25]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProtoUtxoEntry.ProtoReflect.Descriptor instead.
+func (*ProtoUtxoEntry) Descriptor() ([]byte, []int) {
+	return file_core_types_proto_block_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *ProtoUtxoEntry) GetAddress() []byte {
+	if x != nil {
+		return x.Address
+	}
+	return nil
+}
+
+func (x *ProtoUtxoEntry) GetDenomination() uint32 {
+	if x != nil {
+		return x.Denomination
+	}
+	return 0
+}
+
+type ProtoAddressUtxos struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Utxos []*ProtoUtxoEntry `protobuf:"bytes,1,rep,name=utxos,proto3" json:"utxos,omitempty"`
+}
+
+func (x *ProtoAddressUtxos) Reset() {
+	*x = ProtoAddressUtxos{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_core_types_proto_block_proto_msgTypes[26]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ProtoAddressUtxos) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProtoAddressUtxos) ProtoMessage() {}
+
+func (x *ProtoAddressUtxos) ProtoReflect() protoreflect.Message {
+	mi := &file_core_types_proto_block_proto_msgTypes[26]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProtoAddressUtxos.ProtoReflect.Descriptor instead.
+func (*ProtoAddressUtxos) Descriptor() ([]byte, []int) {
+	return file_core_types_proto_block_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *ProtoAddressUtxos) GetUtxos() []*ProtoUtxoEntry {
+	if x != nil {
+		return x.Utxos
+	}
+	return nil
+}
+
+type ProtoUtxosMap struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Entries map[string]*ProtoAddressUtxos `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (x *ProtoUtxosMap) Reset() {
+	*x = ProtoUtxosMap{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_core_types_proto_block_proto_msgTypes[27]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ProtoUtxosMap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProtoUtxosMap) ProtoMessage() {}
+
+func (x *ProtoUtxosMap) ProtoReflect() protoreflect.Message {
+	mi := &file_core_types_proto_block_proto_msgTypes[27]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProtoUtxosMap.ProtoReflect.Descriptor instead.
+func (*ProtoUtxosMap) Descriptor() ([]byte, []int) {
+	return file_core_types_proto_block_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *ProtoUtxosMap) GetEntries() map[string]*ProtoAddressUtxos {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
 var File_core_types_proto_block_proto protoreflect.FileDescriptor
 
 var file_core_types_proto_block_proto_rawDesc = []byte{
@@ -1997,11 +2240,46 @@ var file_core_types_proto_block_proto_rawDesc = []byte{
 	0x0a, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x48,
 	0x01, 0x52, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x88, 0x01, 0x01, 0x42, 0x0f, 0x0a,
 	0x0d, 0x5f, 0x64, 0x65, 0x6e, 0x6f, 0x6d, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x42, 0x0a,
-	0x0a, 0x08, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x42, 0x33, 0x5a, 0x31, 0x67, 0x69,
-	0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x6f, 0x6d, 0x69, 0x6e, 0x61, 0x6e,
-	0x74, 0x2d, 0x73, 0x74, 0x72, 0x61, 0x74, 0x65, 0x67, 0x69, 0x65, 0x73, 0x2f, 0x67, 0x6f, 0x2d,
-	0x71, 0x75, 0x61, 0x69, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x0a, 0x08, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x22, 0x4c, 0x0a, 0x15, 0x50, 0x72,
+	0x6f, 0x74, 0x6f, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x4f, 0x75, 0x74, 0x50, 0x6f, 0x69,
+	0x6e, 0x74, 0x73, 0x12, 0x33, 0x0a, 0x0a, 0x6f, 0x75, 0x74, 0x5f, 0x70, 0x6f, 0x69, 0x6e, 0x74,
+	0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x2e,
+	0x50, 0x72, 0x6f, 0x74, 0x6f, 0x4f, 0x75, 0x74, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x09, 0x6f,
+	0x75, 0x74, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x73, 0x22, 0xae, 0x01, 0x0a, 0x11, 0x50, 0x72, 0x6f,
+	0x74, 0x6f, 0x4f, 0x75, 0x74, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x73, 0x4d, 0x61, 0x70, 0x12, 0x3f,
+	0x0a, 0x07, 0x65, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32,
+	0x25, 0x2e, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x2e, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x4f, 0x75, 0x74,
+	0x50, 0x6f, 0x69, 0x6e, 0x74, 0x73, 0x4d, 0x61, 0x70, 0x2e, 0x45, 0x6e, 0x74, 0x72, 0x69, 0x65,
+	0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x07, 0x65, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x1a,
+	0x58, 0x0a, 0x0c, 0x45, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12,
+	0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65,
+	0x79, 0x12, 0x32, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x1c, 0x2e, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x2e, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x41, 0x64,
+	0x64, 0x72, 0x65, 0x73, 0x73, 0x4f, 0x75, 0x74, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x73, 0x52, 0x05,
+	0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x4e, 0x0a, 0x0e, 0x50, 0x72, 0x6f,
+	0x74, 0x6f, 0x55, 0x74, 0x78, 0x6f, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x18, 0x0a, 0x07, 0x61,
+	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x07, 0x61, 0x64,
+	0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x22, 0x0a, 0x0c, 0x64, 0x65, 0x6e, 0x6f, 0x6d, 0x69, 0x6e,
+	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0c, 0x64, 0x65, 0x6e,
+	0x6f, 0x6d, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x40, 0x0a, 0x11, 0x50, 0x72, 0x6f,
+	0x74, 0x6f, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x55, 0x74, 0x78, 0x6f, 0x73, 0x12, 0x2b,
+	0x0a, 0x05, 0x75, 0x74, 0x78, 0x6f, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x15, 0x2e,
+	0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x2e, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x55, 0x74, 0x78, 0x6f, 0x45,
+	0x6e, 0x74, 0x72, 0x79, 0x52, 0x05, 0x75, 0x74, 0x78, 0x6f, 0x73, 0x22, 0xa2, 0x01, 0x0a, 0x0d,
+	0x50, 0x72, 0x6f, 0x74, 0x6f, 0x55, 0x74, 0x78, 0x6f, 0x73, 0x4d, 0x61, 0x70, 0x12, 0x3b, 0x0a,
+	0x07, 0x65, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x21,
+	0x2e, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x2e, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x55, 0x74, 0x78, 0x6f,
+	0x73, 0x4d, 0x61, 0x70, 0x2e, 0x45, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72,
+	0x79, 0x52, 0x07, 0x65, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x1a, 0x54, 0x0a, 0x0c, 0x45, 0x6e,
+	0x74, 0x72, 0x69, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65,
+	0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x2e, 0x0a, 0x05,
+	0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x62, 0x6c,
+	0x6f, 0x63, 0x6b, 0x2e, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73,
+	0x55, 0x74, 0x78, 0x6f, 0x73, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01,
+	0x42, 0x33, 0x5a, 0x31, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64,
+	0x6f, 0x6d, 0x69, 0x6e, 0x61, 0x6e, 0x74, 0x2d, 0x73, 0x74, 0x72, 0x61, 0x74, 0x65, 0x67, 0x69,
+	0x65, 0x73, 0x2f, 0x67, 0x6f, 0x2d, 0x71, 0x75, 0x61, 0x69, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2f,
+	0x74, 0x79, 0x70, 0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -2016,7 +2294,7 @@ func file_core_types_proto_block_proto_rawDescGZIP() []byte {
 	return file_core_types_proto_block_proto_rawDescData
 }
 
-var file_core_types_proto_block_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_core_types_proto_block_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_core_types_proto_block_proto_goTypes = []interface{}{
 	(*ProtoBlock)(nil),              // 0: block.ProtoBlock
 	(*ProtoBody)(nil),               // 1: block.ProtoBody
@@ -2041,10 +2319,17 @@ var file_core_types_proto_block_proto_goTypes = []interface{}{
 	(*ProtoTxIn)(nil),               // 20: block.ProtoTxIn
 	(*ProtoOutPoint)(nil),           // 21: block.ProtoOutPoint
 	(*ProtoTxOut)(nil),              // 22: block.ProtoTxOut
-	(*common.ProtoHashes)(nil),      // 23: common.ProtoHashes
-	(*common.ProtoHash)(nil),        // 24: common.ProtoHash
-	(*common.ProtoLocation)(nil),    // 25: common.ProtoLocation
-	(*common.ProtoAddress)(nil),     // 26: common.ProtoAddress
+	(*ProtoAddressOutPoints)(nil),   // 23: block.ProtoAddressOutPoints
+	(*ProtoOutPointsMap)(nil),       // 24: block.ProtoOutPointsMap
+	(*ProtoUtxoEntry)(nil),          // 25: block.ProtoUtxoEntry
+	(*ProtoAddressUtxos)(nil),       // 26: block.ProtoAddressUtxos
+	(*ProtoUtxosMap)(nil),           // 27: block.ProtoUtxosMap
+	nil,                             // 28: block.ProtoOutPointsMap.EntriesEntry
+	nil,                             // 29: block.ProtoUtxosMap.EntriesEntry
+	(*common.ProtoHashes)(nil),      // 30: common.ProtoHashes
+	(*common.ProtoHash)(nil),        // 31: common.ProtoHash
+	(*common.ProtoLocation)(nil),    // 32: common.ProtoLocation
+	(*common.ProtoAddress)(nil),     // 33: common.ProtoAddress
 }
 var file_core_types_proto_block_proto_depIdxs = []int32{
 	2,  // 0: block.ProtoBlock.header:type_name -> block.ProtoHeader
@@ -2053,43 +2338,43 @@ var file_core_types_proto_block_proto_depIdxs = []int32{
 	5,  // 3: block.ProtoBody.uncles:type_name -> block.ProtoHeaders
 	4,  // 4: block.ProtoBody.etxs:type_name -> block.ProtoTransactions
 	6,  // 5: block.ProtoBody.manifest:type_name -> block.ProtoManifest
-	23, // 6: block.ProtoBody.interlink_hashes:type_name -> common.ProtoHashes
-	24, // 7: block.ProtoHeader.parent_hash:type_name -> common.ProtoHash
-	24, // 8: block.ProtoHeader.uncle_hash:type_name -> common.ProtoHash
-	24, // 9: block.ProtoHeader.evm_root:type_name -> common.ProtoHash
-	24, // 10: block.ProtoHeader.tx_hash:type_name -> common.ProtoHash
-	24, // 11: block.ProtoHeader.etx_hash:type_name -> common.ProtoHash
-	24, // 12: block.ProtoHeader.etx_rollup_hash:type_name -> common.ProtoHash
-	24, // 13: block.ProtoHeader.manifest_hash:type_name -> common.ProtoHash
-	24, // 14: block.ProtoHeader.receipt_hash:type_name -> common.ProtoHash
-	25, // 15: block.ProtoHeader.location:type_name -> common.ProtoLocation
-	24, // 16: block.ProtoHeader.mix_hash:type_name -> common.ProtoHash
-	24, // 17: block.ProtoHeader.utxo_root:type_name -> common.ProtoHash
-	24, // 18: block.ProtoHeader.etx_set_hash:type_name -> common.ProtoHash
-	24, // 19: block.ProtoHeader.etx_eligible_slices:type_name -> common.ProtoHash
-	24, // 20: block.ProtoHeader.prime_terminus:type_name -> common.ProtoHash
-	24, // 21: block.ProtoHeader.interlink_root_hash:type_name -> common.ProtoHash
+	30, // 6: block.ProtoBody.interlink_hashes:type_name -> common.ProtoHashes
+	31, // 7: block.ProtoHeader.parent_hash:type_name -> common.ProtoHash
+	31, // 8: block.ProtoHeader.uncle_hash:type_name -> common.ProtoHash
+	31, // 9: block.ProtoHeader.evm_root:type_name -> common.ProtoHash
+	31, // 10: block.ProtoHeader.tx_hash:type_name -> common.ProtoHash
+	31, // 11: block.ProtoHeader.etx_hash:type_name -> common.ProtoHash
+	31, // 12: block.ProtoHeader.etx_rollup_hash:type_name -> common.ProtoHash
+	31, // 13: block.ProtoHeader.manifest_hash:type_name -> common.ProtoHash
+	31, // 14: block.ProtoHeader.receipt_hash:type_name -> common.ProtoHash
+	32, // 15: block.ProtoHeader.location:type_name -> common.ProtoLocation
+	31, // 16: block.ProtoHeader.mix_hash:type_name -> common.ProtoHash
+	31, // 17: block.ProtoHeader.utxo_root:type_name -> common.ProtoHash
+	31, // 18: block.ProtoHeader.etx_set_hash:type_name -> common.ProtoHash
+	31, // 19: block.ProtoHeader.etx_eligible_slices:type_name -> common.ProtoHash
+	31, // 20: block.ProtoHeader.prime_terminus:type_name -> common.ProtoHash
+	31, // 21: block.ProtoHeader.interlink_root_hash:type_name -> common.ProtoHash
 	7,  // 22: block.ProtoTransaction.access_list:type_name -> block.ProtoAccessList
-	24, // 23: block.ProtoTransaction.originating_tx_hash:type_name -> common.ProtoHash
+	31, // 23: block.ProtoTransaction.originating_tx_hash:type_name -> common.ProtoHash
 	18, // 24: block.ProtoTransaction.tx_ins:type_name -> block.ProtoTxIns
 	19, // 25: block.ProtoTransaction.tx_outs:type_name -> block.ProtoTxOuts
 	3,  // 26: block.ProtoTransactions.transactions:type_name -> block.ProtoTransaction
 	2,  // 27: block.ProtoHeaders.headers:type_name -> block.ProtoHeader
-	24, // 28: block.ProtoManifest.manifest:type_name -> common.ProtoHash
+	31, // 28: block.ProtoManifest.manifest:type_name -> common.ProtoHash
 	8,  // 29: block.ProtoAccessList.access_tuples:type_name -> block.ProtoAccessTuple
-	24, // 30: block.ProtoAccessTuple.storage_key:type_name -> common.ProtoHash
-	24, // 31: block.ProtoReceiptForStorage.tx_hash:type_name -> common.ProtoHash
-	26, // 32: block.ProtoReceiptForStorage.contract_address:type_name -> common.ProtoAddress
+	31, // 30: block.ProtoAccessTuple.storage_key:type_name -> common.ProtoHash
+	31, // 31: block.ProtoReceiptForStorage.tx_hash:type_name -> common.ProtoHash
+	33, // 32: block.ProtoReceiptForStorage.contract_address:type_name -> common.ProtoAddress
 	12, // 33: block.ProtoReceiptForStorage.logs:type_name -> block.ProtoLogsForStorage
 	4,  // 34: block.ProtoReceiptForStorage.etxs:type_name -> block.ProtoTransactions
 	9,  // 35: block.ProtoReceiptsForStorage.receipts:type_name -> block.ProtoReceiptForStorage
-	26, // 36: block.ProtoLogForStorage.address:type_name -> common.ProtoAddress
-	24, // 37: block.ProtoLogForStorage.topics:type_name -> common.ProtoHash
+	33, // 36: block.ProtoLogForStorage.address:type_name -> common.ProtoAddress
+	31, // 37: block.ProtoLogForStorage.topics:type_name -> common.ProtoHash
 	11, // 38: block.ProtoLogsForStorage.logs:type_name -> block.ProtoLogForStorage
 	2,  // 39: block.ProtoPendingHeader.header:type_name -> block.ProtoHeader
 	14, // 40: block.ProtoPendingHeader.termini:type_name -> block.ProtoTermini
-	24, // 41: block.ProtoTermini.dom_termini:type_name -> common.ProtoHash
-	24, // 42: block.ProtoTermini.sub_termini:type_name -> common.ProtoHash
+	31, // 41: block.ProtoTermini.dom_termini:type_name -> common.ProtoHash
+	31, // 42: block.ProtoTermini.sub_termini:type_name -> common.ProtoHash
 	2,  // 43: block.ProtoPendingEtxs.header:type_name -> block.ProtoHeader
 	4,  // 44: block.ProtoPendingEtxs.etxs:type_name -> block.ProtoTransactions
 	2,  // 45: block.ProtoPendingEtxsRollup.header:type_name -> block.ProtoHeader
@@ -2097,12 +2382,18 @@ var file_core_types_proto_block_proto_depIdxs = []int32{
 	20, // 47: block.ProtoTxIns.tx_ins:type_name -> block.ProtoTxIn
 	22, // 48: block.ProtoTxOuts.tx_outs:type_name -> block.ProtoTxOut
 	21, // 49: block.ProtoTxIn.previous_out_point:type_name -> block.ProtoOutPoint
-	24, // 50: block.ProtoOutPoint.hash:type_name -> common.ProtoHash
-	51, // [51:51] is the sub-list for method output_type
-	51, // [51:51] is the sub-list for method input_type
-	51, // [51:51] is the sub-list for extension type_name
-	51, // [51:51] is the sub-list for extension extendee
-	0,  // [0:51] is the sub-list for field type_name
+	31, // 50: block.ProtoOutPoint.hash:type_name -> common.ProtoHash
+	21, // 51: block.ProtoAddressOutPoints.out_points:type_name -> block.ProtoOutPoint
+	28, // 52: block.ProtoOutPointsMap.entries:type_name -> block.ProtoOutPointsMap.EntriesEntry
+	25, // 53: block.ProtoAddressUtxos.utxos:type_name -> block.ProtoUtxoEntry
+	29, // 54: block.ProtoUtxosMap.entries:type_name -> block.ProtoUtxosMap.EntriesEntry
+	23, // 55: block.ProtoOutPointsMap.EntriesEntry.value:type_name -> block.ProtoAddressOutPoints
+	26, // 56: block.ProtoUtxosMap.EntriesEntry.value:type_name -> block.ProtoAddressUtxos
+	57, // [57:57] is the sub-list for method output_type
+	57, // [57:57] is the sub-list for method input_type
+	57, // [57:57] is the sub-list for extension type_name
+	57, // [57:57] is the sub-list for extension extendee
+	0,  // [0:57] is the sub-list for field type_name
 }
 
 func init() { file_core_types_proto_block_proto_init() }
@@ -2387,6 +2678,66 @@ func file_core_types_proto_block_proto_init() {
 				return nil
 			}
 		}
+		file_core_types_proto_block_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ProtoAddressOutPoints); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_core_types_proto_block_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ProtoOutPointsMap); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_core_types_proto_block_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ProtoUtxoEntry); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_core_types_proto_block_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ProtoAddressUtxos); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_core_types_proto_block_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ProtoUtxosMap); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_core_types_proto_block_proto_msgTypes[0].OneofWrappers = []interface{}{}
 	file_core_types_proto_block_proto_msgTypes[1].OneofWrappers = []interface{}{}
@@ -2405,7 +2756,7 @@ func file_core_types_proto_block_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_core_types_proto_block_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   23,
+			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -198,7 +198,7 @@ func NewStateProcessor(config *params.ChainConfig, hc *HeaderChain, engine conse
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) Process(block *types.Block, etxSet *types.EtxSet) (types.Receipts, []*types.Transaction, []*types.Log, *state.StateDB, uint64, error) {
+func (p *StateProcessor) Process(block *types.Block, etxSet *types.EtxSet, addressOutpointMap map[string][]*types.OutPoint) (types.Receipts, []*types.Transaction, []*types.Log, *state.StateDB, uint64, error) {
 	var (
 		receipts     types.Receipts
 		usedGas      = new(uint64)
@@ -273,7 +273,7 @@ func (p *StateProcessor) Process(block *types.Block, etxSet *types.EtxSet) (type
 				// coinbase tx currently exempt from gas and outputs are added after all txs are processed
 				continue
 			}
-			fees, etxs, err := ProcessQiTx(tx, p.hc, true, header, statedb, gp, usedGas, p.hc.pool.signer, p.hc.NodeLocation(), *p.config.ChainID, &etxRLimit, &etxPLimit)
+			fees, etxs, err := ProcessQiTx(tx, p.hc, true, header, statedb, gp, usedGas, p.hc.pool.signer, p.hc.NodeLocation(), *p.config.ChainID, &etxRLimit, &etxPLimit, addressOutpointMap)
 			if err != nil {
 				return nil, nil, nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 			}
@@ -370,6 +370,18 @@ func (p *StateProcessor) Process(block *types.Block, etxSet *types.EtxSet) (type
 			}
 			utxo := types.NewUtxoEntry(&txOut)
 			statedb.CreateUTXO(qiTransactions[0].Hash(), uint16(txOutIdx), utxo)
+
+			outpoint := &types.OutPoint{
+				TxHash: qiTransactions[0].Hash(),
+				Index:  uint16(txOutIdx),
+			}
+
+			if existingOutpoints, ok := addressOutpointMap[coinbase.Hex()]; ok {
+				addressOutpointMap[coinbase.Hex()] = append(existingOutpoints, outpoint)
+			} else {
+				addressOutpointMap[coinbase.Hex()] = []*types.OutPoint{outpoint}
+			}
+
 			p.logger.WithFields(log.Fields{
 				"txHash":       qiTransactions[0].Hash().Hex(),
 				"txOutIdx":     txOutIdx,
@@ -478,7 +490,7 @@ func applyTransaction(msg types.Message, parent *types.Header, config *params.Ch
 	return receipt, err
 }
 
-func ProcessQiTx(tx *types.Transaction, chain ChainContext, updateState bool, currentHeader *types.Header, statedb *state.StateDB, gp *GasPool, usedGas *uint64, signer types.Signer, location common.Location, chainId big.Int, etxRLimit, etxPLimit *int) (*big.Int, []*types.Transaction, error) {
+func ProcessQiTx(tx *types.Transaction, chain ChainContext, updateState bool, currentHeader *types.Header, statedb *state.StateDB, gp *GasPool, usedGas *uint64, signer types.Signer, location common.Location, chainId big.Int, etxRLimit, etxPLimit *int, addressOutpointMap map[string][]*types.OutPoint) (*big.Int, []*types.Transaction, error) {
 	// Sanity checks
 	if tx == nil || tx.Type() != types.QiTxType {
 		return nil, nil, fmt.Errorf("tx %032x is not a QiTx", tx.Hash())
@@ -535,6 +547,19 @@ func ProcessQiTx(tx *types.Transaction, chain ChainContext, updateState bool, cu
 		totalQitIn.Add(totalQitIn, types.Denominations[denomination])
 		if updateState { // only update the state if requested (txpool check does not need to update the state)
 			statedb.DeleteUTXO(txIn.PreviousOutPoint.TxHash, txIn.PreviousOutPoint.Index)
+
+			outpointsForAddress := addressOutpointMap[entryAddr.Hex()]
+			// remove the utxo from the map
+
+			outpoint := &types.OutPoint{TxHash: txIn.PreviousOutPoint.TxHash, Index: txIn.PreviousOutPoint.Index}
+			for i := 0; i < len(outpointsForAddress); i++ {
+				if outpointsForAddress[i] == outpoint {
+					outpointsForAddress = append(outpointsForAddress[:i], outpointsForAddress[i+1:]...)
+					addressOutpointMap[entryAddr.Hex()] = outpointsForAddress
+
+					break
+				}
+			}
 		}
 	}
 	var ETXRCount int
@@ -597,6 +622,14 @@ func ProcessQiTx(tx *types.Transaction, chain ChainContext, updateState bool, cu
 			utxo := types.NewUtxoEntry(&txOut)
 			if updateState {
 				statedb.CreateUTXO(tx.Hash(), uint16(txOutIdx), utxo)
+
+				outpoint := &types.OutPoint{TxHash: tx.Hash(), Index: uint16(txOutIdx)}
+
+				if existingOutpoints, ok := addressOutpointMap[toAddr.Hex()]; ok {
+					addressOutpointMap[toAddr.Hex()] = append(existingOutpoints, outpoint)
+				} else {
+					addressOutpointMap[toAddr.Hex()] = []*types.OutPoint{outpoint}
+				}
 			}
 		}
 	}
@@ -664,8 +697,17 @@ func (p *StateProcessor) Apply(batch ethdb.Batch, block *types.Block, newInbound
 		return nil, errors.New("failed to load etx set")
 	}
 	time2 := common.PrettyDuration(time.Since(start))
+	addressOutpointMap := rawdb.ReadAddressOutpoints(p.hc.bc.db, parentHash, parentNumber, p.hc.NodeLocation())
+	if addressOutpointMap == nil {
+		addressOutpointMap = make(map[string][]*types.OutPoint)
+	}
+
+	if p.hc.IsGenesisHash(block.ParentHash(nodeCtx)) {
+		AddGenesisUTXOOutpointMap(p.hc.NodeLocation(), addressOutpointMap, p.logger)
+	}
+
 	// Process our block
-	receipts, utxoEtxs, logs, statedb, usedGas, err := p.Process(block, etxSet)
+	receipts, utxoEtxs, logs, statedb, usedGas, err := p.Process(block, etxSet, addressOutpointMap)
 	if err != nil {
 		return nil, err
 	}
@@ -718,6 +760,8 @@ func (p *StateProcessor) Apply(batch ethdb.Batch, block *types.Block, newInbound
 		rawdb.WriteETX(batch, hash, etx) // This must be done because of rawdb <-> types import cycle
 	})
 	rawdb.WriteEtxSet(batch, header.Hash(), header.NumberU64(nodeCtx), etxSet)
+	rawdb.WriteAddressOutpoints(batch, header.Hash(), header.NumberU64(nodeCtx), addressOutpointMap)
+
 	time12 := common.PrettyDuration(time.Since(start))
 
 	p.logger.WithFields(log.Fields{
@@ -970,11 +1014,14 @@ func (p *StateProcessor) StateAtBlock(block *types.Block, reexec uint64, base *s
 			rawdb.WriteETX(rawdb.NewMemoryDatabase(), hash, etx)
 		})
 
+		addressOutpoints := rawdb.ReadAddressOutpoints(p.hc.bc.db, parentHash, parentNumber, p.hc.NodeLocation())
+		fmt.Println("addressOutpoints: ", addressOutpoints)
+
 		currentBlock := rawdb.ReadBlock(p.hc.bc.db, current.Hash(), current.NumberU64(nodeCtx), p.hc.NodeLocation())
 		if currentBlock == nil {
 			return nil, errors.New("detached block found trying to regenerate state")
 		}
-		_, _, _, _, _, err := p.Process(currentBlock, etxSet)
+		_, _, _, _, _, err := p.Process(currentBlock, etxSet, addressOutpoints)
 		if err != nil {
 			return nil, fmt.Errorf("processing block %d failed: %v", current.NumberU64(nodeCtx), err)
 		}
@@ -1076,9 +1123,4 @@ func prepareApplyETX(statedb *state.StateDB, tx *types.Transaction, nodeLocation
 	total := big.NewInt(0).Add(fee, tx.Value())                          // Add gas fee to value
 	statedb.SetBalance(common.ZeroInternal(nodeLocation), total)         // Use zero address at temp placeholder and set it to gas fee plus value
 	return prevZeroBal
-}
-
-func (p *StateProcessor) GetUTXOsByAddress(address common.Address) ([]*types.UtxoEntry, error) {
-	utxos := rawdb.ReadAddressUtxos(p.hc.bc.db, address)
-	return utxos, nil
 }

@@ -252,6 +252,14 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	return (*hexutil.Big)(state.GetBalance(internal)), state.Error()
 }
 
+func (s *PublicBlockChainAPI) GetOutpointsByAddressAtBlock(ctx context.Context, address common.Address, hash common.Hash) ([]*types.OutPoint, error) {
+	outpints, err := s.b.AddressOutpointsByHash(ctx, address, hash)
+	if err != nil {
+		return nil, err
+	}
+	return outpints, nil
+}
+
 func (s *PublicBlockChainAPI) GetQiBalance(ctx context.Context, address common.Address) (*hexutil.Big, error) {
 	utxos, err := s.b.UTXOsByAddress(ctx, address)
 	if utxos == nil || err != nil {

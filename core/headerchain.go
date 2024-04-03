@@ -142,9 +142,6 @@ func NewHeaderChain(db ethdb.Database, engine consensus.Engine, pEtxsRollupFetch
 	heads := make([]*types.Header, 0)
 	hc.heads = heads
 
-	// Initialize the UTXO cache
-	hc.InitializeAddressUtxoCache()
-
 	return hc, nil
 }
 
@@ -355,6 +352,11 @@ func (hc *HeaderChain) SetCurrentHeader(head *types.Header) error {
 
 	// If head is the normal extension of canonical head, we can return by just wiring the canonical hash.
 	if prevHeader.Hash() == head.ParentHash(hc.NodeCtx()) {
+
+		if hc.indexerConfig.IndexAddressUtxos {
+
+		}
+
 		rawdb.WriteCanonicalHash(hc.headerDb, head.Hash(), head.NumberU64(hc.NodeCtx()))
 		return nil
 	}
@@ -1000,65 +1002,6 @@ func (hc *HeaderChain) StateAt(root common.Hash, utxoRoot common.Hash) (*state.S
 
 func (hc *HeaderChain) SlicesRunning() []common.Location {
 	return hc.slicesRunning
-}
-
-// InitializeAddressUtxoCache initializes the address utxo cache.
-// It is important to manage this set since nodes can enable / disable
-// address indexing between start ups. When a node disables address utxo
-// indexing, prior entries in the table will need to be removed.
-func (hc *HeaderChain) InitializeAddressUtxoCache() error {
-
-	start := time.Now()
-
-	it := hc.bc.db.NewIterator(rawdb.AddressUtxosPrefix, nil)
-	defer it.Release()
-
-	utxoCount := 0
-	for it.Next() {
-		utxoCount += 1
-		// If we are no longer running with address utxo indexing,
-		// delete all prior entries
-		if !hc.indexerConfig.IndexAddressUtxos {
-			err := hc.bc.db.Delete(it.Key())
-			if err != nil {
-				return err
-			}
-		} else {
-			break
-		}
-	}
-
-	// If we are no longer running with address utxo indexing,
-	// delete all prior entries and compact the table
-	if !hc.indexerConfig.IndexAddressUtxos {
-		end := common.CopyBytes(rawdb.AddressUtxosPrefix)
-		end[len(end)-1]++
-
-		hc.bc.db.Compact(rawdb.AddressUtxosPrefix, end)
-		return nil
-	}
-
-	// If there are utxos in the database, then we need to index them
-	// into the address utxo table
-	if utxoCount == 0 {
-		it := hc.bc.db.NewIterator([]byte("ut"), nil)
-		defer it.Release()
-
-		for it.Next() {
-			data := it.Value()
-			utxo := new(types.UtxoEntry)
-			if err := rlp.Decode(bytes.NewReader(data), utxo); err != nil {
-				return nil
-			}
-			address := common.BytesToAddress(utxo.Address, hc.NodeLocation())
-			addressUtxos := rawdb.ReadAddressUtxos(hc.bc.db, address)
-			addressUtxos = append(addressUtxos, utxo)
-			rawdb.WriteAddressUtxos(hc.bc.db, address, addressUtxos)
-		}
-	}
-
-	hc.logger.Info("Finished initializing address utxo cache", "duration", time.Since(start))
-	return nil
 }
 
 // ComputeEfficiencyScore calculates the efficiency score for the given header

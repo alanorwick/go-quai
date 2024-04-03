@@ -543,3 +543,29 @@ func AddGenesisUtxos(state *state.StateDB, nodeLocation common.Location, logger 
 		state.CreateUTXO(hash, uint16(utxo.Index), newUtxo)
 	}
 }
+
+// AddGenesisUTXOOutpointMap gathers the outpoints
+func AddGenesisUTXOOutpointMap(nodeLocation common.Location, addressOutpointMap map[string][]*types.OutPoint, logger *log.Logger) {
+	qiAlloc := ReadGenesisQiAlloc("genallocs/gen_alloc_qi_"+nodeLocation.Name()+".json", logger)
+	// logger.WithField("alloc", len(qiAlloc)).Info("Allocating genesis accounts")
+	for addressString, utxo := range qiAlloc {
+		addr := common.HexToAddress(addressString, nodeLocation)
+		hash := common.HexToHash(utxo.Hash)
+
+		// check if utxo.Denomination is less than uint8
+		if utxo.Denomination > 255 {
+			logger.Error("Provided denomination is larger than uint8")
+		}
+
+		outpoint := &types.OutPoint{
+			TxHash: hash,
+			Index:  uint16(utxo.Index),
+		}
+
+		if existingOutpoints, ok := addressOutpointMap[addr.Hex()]; ok {
+			addressOutpointMap[addr.Hex()] = append(existingOutpoints, outpoint)
+		} else {
+			addressOutpointMap[addr.Hex()] = []*types.OutPoint{outpoint}
+		}
+	}
+}

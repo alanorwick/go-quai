@@ -150,3 +150,24 @@ message ProtoTxOut {
   optional uint32 denomination = 1;
   optional bytes address = 2;
 }
+
+message ProtoAddressOutPoints {
+  repeated ProtoOutPoint out_points = 1;
+}
+
+message ProtoOutPointsMap {
+  map<string, ProtoAddressOutPoints> entries = 1;
+}
+
+message ProtoUtxoEntry {
+  bytes address = 1;  // Ethereum address
+  uint32 denomination = 2;
+}
+
+message ProtoAddressUtxos {
+  repeated ProtoUtxoEntry utxos = 1;
+}
+
+message ProtoUtxosMap {
+  map<string, ProtoAddressUtxos> entries = 1;
+}
