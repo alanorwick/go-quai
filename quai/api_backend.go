@@ -217,15 +217,15 @@ func (b *QuaiAPIBackend) StateAndHeaderByNumberOrHash(ctx context.Context, block
 }
 
 func (b *QuaiAPIBackend) AddressOutpointsByHash(ctx context.Context, address common.Address, hash common.Hash) ([]*types.OutPoint, error) {
-	block, err := b.BlockByHash(ctx, hash)
+	header, err := b.HeaderByHash(ctx, hash)
 	if err != nil {
 		return nil, errors.New("block is nil api backend")
 	}
-	return b.quai.core.GetOutpointsByAddressAtBlock(address, block), nil
+	return b.quai.core.GetOutpointsByAddress(address, header), nil
 }
 
-func (b *QuaiAPIBackend) UTXOsByAddress(ctx context.Context, address common.Address) ([]*types.UtxoEntry, error) {
-	return b.quai.core.GetUTXOsByAddress(address)
+func (b *QuaiAPIBackend) UTXOsByAddressAtState(ctx context.Context, state *state.StateDB, header *types.Header, address common.Address) ([]*types.UtxoEntry, error) {
+	return b.quai.core.GetUTXOsByAddressAtState(state, header, address)
 }
 
 func (b *QuaiAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {

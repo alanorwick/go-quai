@@ -1180,21 +1180,14 @@ func (c *Core) TrieNode(hash common.Hash) ([]byte, error) {
 	return c.sl.hc.bc.processor.TrieNode(hash)
 }
 
-func (c *Core) GetOutpointsByAddressAtBlock(address common.Address, block *types.Block) []*types.OutPoint {
-	outpoints := rawdb.ReadAddressOutpoints(c.sl.hc.bc.db, block.Hash(), block.NumberU64(c.sl.hc.NodeCtx()), c.sl.hc.NodeLocation())
+func (c *Core) GetOutpointsByAddress(address common.Address, header *types.Header) []*types.OutPoint {
+	outpoints := rawdb.ReadAddressOutpoints(c.sl.hc.bc.db, header.Hash(), header.NumberU64(c.sl.hc.NodeCtx()), c.sl.hc.NodeLocation())
 	outpointsForAddress := outpoints[address.Hex()]
 	return outpointsForAddress
 }
 
-func (c *Core) GetUTXOsByAddress(address common.Address) ([]*types.UtxoEntry, error) {
-	curr := c.sl.hc.CurrentBlock()
-	outpointsForAddress := c.GetOutpointsByAddressAtBlock(address, curr)
-
-	state, err := c.sl.hc.bc.processor.StateAtBlock(curr, 0, nil, false)
-	if err != nil {
-		return nil, err
-	}
-
+func (c *Core) GetUTXOsByAddressAtState(state *state.StateDB, header *types.Header, address common.Address) ([]*types.UtxoEntry, error) {
+	outpointsForAddress := c.GetOutpointsByAddress(address, header)
 	utxos := make([]*types.UtxoEntry, 0, len(outpointsForAddress))
 
 	for _, outpoint := range outpointsForAddress {

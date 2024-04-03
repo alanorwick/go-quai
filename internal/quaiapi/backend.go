@@ -68,7 +68,7 @@ type Backend interface {
 	StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*state.StateDB, *types.Header, error)
 	StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*state.StateDB, *types.Header, error)
 	AddressOutpointsByHash(ctx context.Context, address common.Address, hash common.Hash) ([]*types.OutPoint, error)
-	UTXOsByAddress(ctx context.Context, address common.Address) ([]*types.UtxoEntry, error)
+	UTXOsByAddressAtState(ctx context.Context, state *state.StateDB, header *types.Header, address common.Address) ([]*types.UtxoEntry, error)
 	GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error)
 	GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmConfig *vm.Config) (*vm.EVM, func() error, error)
 	SetCurrentExpansionNumber(expansionNumber uint8)
