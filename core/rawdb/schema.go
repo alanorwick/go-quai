@@ -81,6 +81,8 @@ var (
 	AddressUtxosPrefix      = []byte("au")    // addressUtxosPrefix + hash -> []types.UtxoEntry
 	processedStatePrefix    = []byte("ps")    // processedStatePrefix + hash -> boolean
 	multiSetPrefix          = []byte("ms")    // multiSetPrefix + hash -> multiset
+	tokenChoicePrefix       = []byte("tc")    // tokenChoicePrefix + hash -> tokenChoices
+	betasPrefix             = []byte("betas") // tokenChoicePrefix + hash -> tokenChoices
 	utxoPrefix              = []byte("ut")    // outpointPrefix + hash -> types.Outpoint
 	spentUTXOsPrefix        = []byte("sutxo") // spentUTXOsPrefix + hash -> []types.SpentTxOut
 	createdUTXOsPrefix      = []byte("cutxo") // createdUTXOsPrefix + hash -> []common.Hash
@@ -313,4 +315,12 @@ func createdUTXOsKey(blockHash common.Hash) []byte {
 
 func multiSetKey(hash common.Hash) []byte {
 	return append(multiSetPrefix, hash.Bytes()...)
+}
+
+func tokenChoiceSetKey(hash common.Hash) []byte {
+	return append(tokenChoicePrefix, hash.Bytes()...)
+}
+
+func betasKey(hash common.Hash) []byte {
+	return append(betasPrefix, hash.Bytes()...)
 }
