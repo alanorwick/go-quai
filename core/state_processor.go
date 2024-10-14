@@ -758,12 +758,17 @@ func RedeemLockedQuai(hc *HeaderChain, statedb *state.StateDB, currentBlockHeigh
 		params.LockupByteToBlockDepth[3], // 12 hours
 	}
 
+	// Start overall timing
+	startTime := time.Now()
+
+	conversionCount := 0
+
 	// Loop through the predefined block depths
 	for _, blockDepth := range blockDepths {
 		// Ensure we can look back far enough
 		if currentBlockHeight.Uint64() <= blockDepth {
 			// Skip this depth if the current block height is less than or equal to the block depth
-			break
+			continue
 		}
 
 		// Calculate the target block height by subtracting the blockDepth from the current height
@@ -774,39 +779,48 @@ func RedeemLockedQuai(hc *HeaderChain, statedb *state.StateDB, currentBlockHeigh
 		if targetHeader == nil {
 			return fmt.Errorf("header at height %d not found", targetBlockHeight.Uint64())
 		}
-
-		// Fetch the block at the calculated target height
 		targetBlock := hc.bc.GetBlock(targetHeader.Hash(), targetBlockHeight.Uint64())
 		if targetBlock == nil {
 			return fmt.Errorf("block at height %d not found", targetBlockHeight.Uint64())
 		}
 
+		// Loop through the external transactions in the block to redeem Quai
 		for _, etx := range targetBlock.Body().ExternalTransactions() {
 			// Check if the transaction is a conversion transaction
 			if types.IsCoinBaseTx(etx) && etx.ETXSender().IsInQuaiLedgerScope() {
 				// Redeem all unlocked Quai for the coinbase address
 				sender := etx.To()
 
+				redeemStart := time.Now()
 				gasPool := new(types.GasPool).AddGas(math.MaxUint64) // Use unlimited gas, as this is part of block processing
 				err := vm.RedeemQuai(statedb, *sender, gasPool, currentBlockHeight, lockupContractAddress)
+				redeemDuration := time.Since(redeemStart)
+				fmt.Printf("Redeemed Quai for coinbase address in %v\n", redeemDuration)
+
 				if err != nil {
 					return fmt.Errorf("failed to redeem Quai for coinbase address at block depth %d: %w", blockDepth, err)
 				}
 			}
 
 			if types.IsConversionTx(etx) {
+				conversionCount++
 				// If sender is in Qi, check for unlock in Quai
 				if etx.ETXSender().IsInQiLedgerScope() {
 					receiver := etx.To()
 					gasPool := new(types.GasPool).AddGas(math.MaxUint64) // Use unlimited gas, as this is part of block processing
 					err := vm.RedeemQuai(statedb, *receiver, gasPool, currentBlockHeight, lockupContractAddress)
 					if err != nil {
-						return fmt.Errorf("failed to redeem Quai for coinbase address at block depth %d: %w", blockDepth, err)
+						return fmt.Errorf("failed to redeem Quai for receiver address at block depth %d: %w", blockDepth, err)
 					}
 				}
 			}
 		}
 	}
+
+	// Log the total time spent for the function
+	totalDuration := time.Since(startTime)
+	fmt.Printf("Total time to redeem locked Quai: %v w/ conversions %d\n", totalDuration, conversionCount)
+
 	return nil
 }
 

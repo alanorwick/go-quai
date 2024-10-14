@@ -193,7 +193,7 @@ var (
 
 func init() {
 	LockupByteToBlockDepth[0] = ConversionLockPeriod // minimum lockup period
-	LockupByteToBlockDepth[1] = 720                  // 2 hours
+	LockupByteToBlockDepth[1] = 20                   // 2 hours
 	LockupByteToBlockDepth[2] = 1440                 // 4 hours
 	LockupByteToBlockDepth[3] = 2880                 // 8 hours
 	LockupByteToBlockDepth[4] = 4320                 // 12 hours
